@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  # LINE Bot Web Server
+  line-bot-web:
+    build: .
+    container_name: line-bot-web
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - SCHEDULER_ENABLED=false  # Disable scheduler in web service
+    env_file:
+      - .env
+    depends_on:
+      - mysql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Daily Scheduler Service
+  line-bot-scheduler:
+    build: .
+    container_name: line-bot-scheduler
+    environment:
+      - NODE_ENV=production
+      - SCHEDULER_ENABLED=true
+    env_file:
+      - .env
+    depends_on:
+      - mysql
+    restart: unless-stopped
+    command: ["npm", "run", "scheduler:start"]
+    volumes:
+      - ../ebook:/app/ebook:ro  # Mount ebook directory for integration
+
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: line-bot-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  default:
+    name: line-bot-network

@@ -1,0 +1,142 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.eslintcache
+
+# TypeScript
+*.tsbuildinfo
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+log_*.txt
+*_log_*.txt
+*.log.*
+
+# Config files with sensitive data
+config.json
+.env
+.env.local
+.env.production
+*.backup_*
+
+# Progress cache files
+.website_monitoring_progress_cache.json
+*_progress_cache.json
+
+# Chrome driver
+chromedriver*
+selenium-manager*
+
+# Generated documents
+generated_documents/
+downloads/*.pdf
+downloads/
+test_downloads/
+archive/
+backups/
+
+# Screenshots and debug files
+debug_*.png
+debug_*.html
+
+# Test outputs
+test_output/
+test_results/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Documentation files (keep only essential docs)
+*_COMPLETE.md
+*_FIX.md
+*_SUMMARY.md
+*_UPDATE.md
+*_CHECKLIST.md
+*_GUIDE.md
+FINAL_*.md
+ALL_*.md
+NOTIFICATION_*.md
+BULLETIN_*.md
+SUBSCRIPTION_*.md
+CONTENTTYPE_*.md
+DEPLOYMENT_*.md
+TEST_*.md
+FIX_*.md
+UNSUBSCRIBE_*.md
+CRITICAL_*.md
+
+# Test and debug scripts
+test-*.ts
+test-*.js
+debug-*.js
+check-*.js
+quick-*.js
+fix-*.js
+
+# Monitoring and scraper logs
+*_test.log
+*_scraper_test.log
+*_controller_test.log
+carousel_scraper_test.log
+monitoring_controller_test.log
+test_carousel_to_excel.log

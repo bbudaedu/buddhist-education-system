@@ -1,0 +1,38 @@
+# 新書摘要與郵件發送系統 - Python 依賴套件
+# Buddhist Education New Book Summary and Email Distribution System - Python Dependencies
+
+# Web automation and scraping
+selenium>=4.0.0
+
+# Google Gemini AI API
+google-genai>=1.0.0
+
+# PDF processing
+pypdf>=3.0.0
+
+# Document generation
+python-docx>=0.8.11
+openpyxl>=3.0.0
+
+# Data visualization and reporting
+matplotlib>=3.5.0
+
+# HTTP requests and networking
+urllib3>=1.26.0
+requests>=2.28.0
+
+# Additional utilities (if needed)
+# These may be automatically installed as dependencies of the above packages
+certifi>=2022.0.0
+charset-normalizer>=2.0.0
+idna>=3.0.0
+
+# Note: The following are built-in Python modules and don't need installation:
+# - tkinter (GUI framework)
+# - smtplib (email sending)
+# - logging (logging system)
+# - json (configuration management)
+# - threading (background processing)
+# - queue (thread-safe communication)
+# - datetime (date/time handling)
+# - os, sys (system operations)

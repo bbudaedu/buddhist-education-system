@@ -1,0 +1,32 @@
+{
+  "mcpServers": {
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "mcp_chrome_devtools_new_page",
+        "mcp_chrome_devtools_navigate_page",
+        "mcp_chrome_devtools_take_snapshot",
+        "mcp_chrome_devtools_click",
+        "mcp_chrome_devtools_fill",
+        "mcp_chrome_devtools_wait_for",
+        "mcp_chrome_devtools_evaluate_script",
+        "mcp_chrome_devtools_close_page",
+        "list_pages",
+        "list_pages",
+        "new_page",
+        "wait_for",
+        "evaluate_script",
+        "navigate_page",
+        "click",
+        "take_snapshot",
+        "list_network_requests",
+        "get_network_request"
+      ]
+    }
+  }
+}
