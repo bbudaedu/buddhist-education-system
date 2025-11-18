@@ -106,24 +106,29 @@ test_results/
 *.temp
 .cache/
 
-# Documentation files (keep only essential docs)
-*_COMPLETE.md
-*_FIX.md
-*_SUMMARY.md
-*_UPDATE.md
-*_CHECKLIST.md
-*_GUIDE.md
+# Documentation files (keep only essential docs in root)
+# Exclude temporary/status docs in subdirectories
+ebook/*_COMPLETE.md
+ebook/*_FIX.md
+ebook/*_SUMMARY.md
+ebook/*_UPDATE.md
+Line-bot-llm-mysql/*_COMPLETE.md
+Line-bot-llm-mysql/*_FIX.md
+Line-bot-llm-mysql/*_SUMMARY.md
+Line-bot-llm-mysql/*_UPDATE.md
+Line-bot-llm-mysql/*_CHECKLIST.md
+Line-bot-llm-mysql/BULLETIN_*.md
+Line-bot-llm-mysql/SUBSCRIPTION_*.md
+Line-bot-llm-mysql/TEST_*.md
+Line-bot-llm-mysql/FIX_*.md
+Line-bot-llm-mysql/UNSUBSCRIBE_*.md
+Line-bot-llm-mysql/CRITICAL_*.md
+docs/*_COMPLETE.md
+docs/*_FIX.md
 FINAL_*.md
 ALL_*.md
 NOTIFICATION_*.md
-BULLETIN_*.md
-SUBSCRIPTION_*.md
 CONTENTTYPE_*.md
-DEPLOYMENT_*.md
-TEST_*.md
-FIX_*.md
-UNSUBSCRIBE_*.md
-CRITICAL_*.md
 
 # Test and debug scripts
 test-*.ts
