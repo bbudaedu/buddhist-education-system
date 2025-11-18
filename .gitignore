@@ -129,6 +129,8 @@ FINAL_*.md
 ALL_*.md
 NOTIFICATION_*.md
 CONTENTTYPE_*.md
+BULLETIN_INTEGRATION_COMPLETE.md
+DEPLOYMENT_CHECKLIST.md
 
 # Test and debug scripts
 test-*.ts
