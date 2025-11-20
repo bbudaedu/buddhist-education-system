@@ -177,6 +177,62 @@ class LineNotificationService:
             self.logger.error(f"Error sending LINE daily summary: {e}")
             return False
     
+    def send_integrated_notification(self, structured_data: Dict[str, List[Dict[str, Any]]]) -> bool:
+        """
+        Send integrated notification with structured data for Flex Message
+        
+        Args:
+            structured_data: Structured data containing newBooks, news, cancellations
+            
+        Returns:
+            bool: True if notification sent successfully
+        """
+        try:
+            if not self.is_enabled():
+                self.logger.debug("LINE notifications disabled, skipping integrated notification")
+                return True
+            
+            self.logger.info("Sending LINE integrated notification (Flex Carousel)...")
+            
+            # Prepare API request with structured data
+            payload = {
+                'type': 'broadcast',
+                'message': '佛教教育網站最新訊息',  # Fallback text
+                'timestamp': datetime.now().isoformat(),
+                'structuredData': structured_data
+            }
+            
+            headers = {
+                'Content-Type': 'application/json'
+            }
+            
+            if self.api_key:
+                headers['Authorization'] = f'Bearer {self.api_key}'
+            
+            # Send request to LINE bot backend
+            response = requests.post(
+                f"{self.api_url}/website-monitoring",
+                json=payload,
+                headers=headers,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                messages_sent = result.get('messagesSent', 0)
+                self.logger.info(f"LINE integrated notification sent successfully ({messages_sent} users)")
+                return True
+            else:
+                self.logger.error(f"LINE integrated notification failed: {response.status_code} - {response.text}")
+                return False
+                
+        except requests.exceptions.RequestException as e:
+            self.logger.error(f"LINE integrated notification request failed: {e}")
+            return False
+        except Exception as e:
+            self.logger.error(f"Error sending LINE integrated notification: {e}")
+            return False
+    
     def _format_immediate_alert(self, alert_items: List[Dict[str, Any]]) -> str:
         """
         Format immediate alert items into LINE message

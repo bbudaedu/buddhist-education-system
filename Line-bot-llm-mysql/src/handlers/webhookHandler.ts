@@ -5,6 +5,8 @@ import { geminiService } from '../services/geminiService';
 import { lineMessagingService } from '../services/lineMessagingService';
 import { subscriptionService } from '../services/subscriptionService';
 import { bulletinService } from '../services/bulletinService';
+import { adminService } from '../services/adminService';
+import { flexMessageService } from '../services/flexMessageService';
 import { ErrorHandler, ErrorContext } from './errorHandler';
 
 /**
@@ -139,6 +141,14 @@ export class WebhookHandler {
     try {
       console.log(`Processing message from user: ${userMessage}`);
 
+      // 優先檢查管理員測試指令（在所有其他指令之前）
+      if (userId && await adminService.isAdmin(userId)) {
+        const isTestCommand = await this.handleAdminTestCommand(userMessage, replyToken);
+        if (isTestCommand) {
+          return; // 如果是管理員測試指令，直接返回
+        }
+      }
+
       // 檢查是否為「最新消息」指令
       if (userMessage.trim() === '最新消息') {
         await this.handleBulletinsCommand(replyToken);
@@ -190,8 +200,8 @@ export class WebhookHandler {
     try {
       console.log('Fetching latest bulletins...');
       
-      // 取得停課公告（最多 3 則）
-      const courseCancellations = await bulletinService.getCourseCancellations(3);
+      // 取得停課公告（最多 8 則）
+      const courseCancellations = await bulletinService.getCourseCancellations(8);
       
       // 取得最新消息（最多 9 則，因為第一張要放停課公告）
       const bulletins = await bulletinService.getLatestBulletins(9);
@@ -227,55 +237,65 @@ export class WebhookHandler {
       return false; // 無法處理沒有用戶 ID 的訂閱指令
     }
 
-    const message = userMessage.trim();
+    const message = userMessage.trim().toLowerCase();
 
     try {
-      // 訂閱特定類型（每個指令只訂閱對應的單一類型）
-      if (message === '訂閱新書' || message === '訂閱') {
+      // 訂閱新書（支援模糊匹配）
+      if (message.includes('訂閱') && (message.includes('新書') || message.includes('書籍'))) {
         await this.handleSubscribeToTypeCommand(replyToken, userId, 'new_books');
         return true;
       }
 
-      if (message === '訂閱最新消息' || message === '訂閱新聞') {
+      // 訂閱最新消息（支援模糊匹配）
+      if (message.includes('訂閱') && (message.includes('最新消息') || message.includes('新聞') || message.includes('消息'))) {
         await this.handleSubscribeToTypeCommand(replyToken, userId, 'news');
         return true;
       }
 
-      if (message === '訂閱停課通知' || message === '訂閱停課') {
+      // 訂閱停課通知（支援模糊匹配）
+      if (message.includes('訂閱') && (message.includes('停課') || message.includes('課程取消'))) {
         await this.handleSubscribeToTypeCommand(replyToken, userId, 'cancellation');
         return true;
       }
 
-      // 取消訂閱
-      if (message === '取消訂閱') {
-        await this.handleUnsubscribeCommand(replyToken, userId);
+      // 單純的「訂閱」指令 - 顯示訂閱選項
+      if (message === '訂閱') {
+        await this.handleResubscribeCommand(replyToken);
         return true;
       }
 
-      // 取消訂閱特定類型
-      if (message === '取消訂閱新書') {
+      // 取消訂閱新書
+      if (message.includes('取消') && message.includes('訂閱') && (message.includes('新書') || message.includes('書籍'))) {
         await this.handleUnsubscribeFromTypeCommand(replyToken, userId, 'new_books');
         return true;
       }
 
-      if (message === '取消訂閱最新消息' || message === '取消訂閱新聞') {
+      // 取消訂閱最新消息
+      if (message.includes('取消') && message.includes('訂閱') && (message.includes('最新消息') || message.includes('新聞') || message.includes('消息'))) {
         await this.handleUnsubscribeFromTypeCommand(replyToken, userId, 'news');
         return true;
       }
 
-      if (message === '取消訂閱停課通知' || message === '取消訂閱停課') {
+      // 取消訂閱停課通知
+      if (message.includes('取消') && message.includes('訂閱') && (message.includes('停課') || message.includes('課程取消'))) {
         await this.handleUnsubscribeFromTypeCommand(replyToken, userId, 'cancellation');
         return true;
       }
 
+      // 取消所有訂閱
+      if (message.includes('取消') && message.includes('訂閱') && !message.includes('新書') && !message.includes('消息') && !message.includes('停課')) {
+        await this.handleUnsubscribeCommand(replyToken, userId);
+        return true;
+      }
+
       // 查詢訂閱狀態
-      if (message === '訂閱狀態' || message === '我的訂閱') {
+      if (message.includes('訂閱狀態') || message.includes('我的訂閱') || message === '訂閱查詢') {
         await this.handleSubscriptionStatusCommand(replyToken, userId);
         return true;
       }
 
       // 重新訂閱（顯示訂閱選項）
-      if (message === '重新訂閱') {
+      if (message.includes('重新訂閱')) {
         await this.handleResubscribeCommand(replyToken);
         return true;
       }
@@ -455,6 +475,310 @@ export class WebhookHandler {
     };
 
     await lineMessagingService.replyMessage(replyToken, [textMessage]);
+  }
+
+  /**
+   * 處理管理員測試指令
+   * @param userMessage 用戶訊息
+   * @param replyToken 回覆 token
+   * @returns Promise<boolean> 是否為管理員測試指令
+   */
+  private async handleAdminTestCommand(
+    userMessage: string,
+    replyToken: string
+  ): Promise<boolean> {
+    const message = userMessage.trim().toLowerCase();
+
+    try {
+      // flex1 - 新書通知測試
+      if (message === 'flex1') {
+        await this.sendTestNewBooksNotification(replyToken);
+        return true;
+      }
+
+      // flex2 - 新聞公告測試
+      if (message === 'flex2') {
+        await this.sendTestNewsNotification(replyToken);
+        return true;
+      }
+
+      // flex3 - 停課通知測試
+      if (message === 'flex3') {
+        await this.sendTestCancellationNotification(replyToken);
+        return true;
+      }
+
+      // flex4 - 整合通知測試
+      if (message === 'flex4') {
+        await this.sendTestIntegratedNotification(replyToken);
+        return true;
+      }
+
+      // realdata - 使用真實資料測試
+      if (message === 'realdata') {
+        await this.sendRealDataTest(replyToken);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Error handling admin test command:', error);
+      // 錯誤已經在測試方法中處理，不要再次使用 replyToken
+      return true;
+    }
+  }
+
+  /**
+   * 發送新書通知測試
+   */
+  private async sendTestNewBooksNotification(replyToken: string): Promise<void> {
+    // 先用簡單的文字訊息測試管理員指令是否正常工作
+    const testMessage = '📚 新書通知測試\n\n' +
+      '1. 金剛經講記\n' +
+      '   作者：淨空法師\n' +
+      '   閱讀：https://www.budaedu.org/ebooks/book1.pdf\n\n' +
+      '2. 楞嚴經淺釋\n' +
+      '   作者：宣化上人\n' +
+      '   閱讀：https://www.budaedu.org/ebooks/book2.pdf\n\n' +
+      '3. 地藏菩薩本願經白話解釋\n' +
+      '   作者：黃智海居士\n' +
+      '   閱讀：https://www.budaedu.org/ebooks/book3.pdf\n\n' +
+      '✅ 管理員測試指令正常運作！\n' +
+      '（Flex Message 功能開發中）';
+
+    await lineMessagingService.sendTextMessage(replyToken, testMessage);
+    console.log('Sent test new books notification (text version)');
+  }
+
+  /**
+   * 發送新聞公告測試
+   */
+  private async sendTestNewsNotification(replyToken: string): Promise<void> {
+    const testMessage = '📰 新聞公告測試\n\n' +
+      '1. 小菩薩的慈悲畫室－佛法讀經與護生繪畫班\n' +
+      '   日期：2025-11-13\n' +
+      '   連結：https://www.budaedu.org/#/course/123\n\n' +
+      '2. 學佛基礎進階班－賢愚經課程公告\n' +
+      '   日期：2025-11-11\n' +
+      '   連結：https://www.budaedu.org/#/course/124\n\n' +
+      '3. 佛學講座：心經的智慧\n' +
+      '   日期：2025-11-10\n' +
+      '   連結：https://www.budaedu.org/#/course/125\n\n' +
+      '✅ 管理員測試指令正常運作！';
+
+    await lineMessagingService.sendTextMessage(replyToken, testMessage);
+    console.log('Sent test news notification (text version)');
+  }
+
+  /**
+   * 發送停課通知測試
+   */
+  private async sendTestCancellationNotification(replyToken: string): Promise<void> {
+    const testMessage = '🚫 停課通知測試\n\n' +
+      '1. 華嚴經宗通\n' +
+      '   日期：2025-11-20\n' +
+      '   講師：某某法師\n' +
+      '   地點：七樓教室\n\n' +
+      '2. 楞嚴經研討\n' +
+      '   日期：2025-11-22\n' +
+      '   講師：某某居士\n' +
+      '   地點：五樓教室\n\n' +
+      '3. 禪修入門班\n' +
+      '   日期：2025-11-25\n' +
+      '   講師：禪師\n' +
+      '   地點：禪堂\n\n' +
+      '✅ 管理員測試指令正常運作！';
+
+    await lineMessagingService.sendTextMessage(replyToken, testMessage);
+    console.log('Sent test cancellation notification (text version)');
+  }
+
+  /**
+   * 發送整合通知測試
+   */
+  private async sendTestIntegratedNotification(replyToken: string): Promise<void> {
+    const testMessage = '📢 整合通知測試\n\n' +
+      '=== 摘要 ===\n' +
+      '📚 新書上架 2 本\n' +
+      '📰 新聞公告 2 則\n' +
+      '🚫 停課通知 1 則\n\n' +
+      '=== 新書上架 ===\n' +
+      '1. 金剛經講記 - 淨空法師\n' +
+      '2. 楞嚴經淺釋 - 宣化上人\n\n' +
+      '=== 新聞公告 ===\n' +
+      '1. 小菩薩的慈悲畫室課程公告\n' +
+      '2. 佛學講座：心經的智慧\n\n' +
+      '=== 停課通知 ===\n' +
+      '1. 華嚴經宗通 (2025-11-20)\n\n' +
+      '✅ 管理員測試指令正常運作！\n' +
+      '（這是整合通知的文字版本）';
+
+    await lineMessagingService.sendTextMessage(replyToken, testMessage);
+    console.log('Sent test integrated notification (text version)');
+  }
+
+  /**
+   * 發送真實資料測試
+   * 從資料庫取得真實的新書、新聞、停課資料
+   */
+  private async sendRealDataTest(replyToken: string): Promise<void> {
+    try {
+      console.log('Fetching real data for test...');
+
+      // 1. 取得真實的停課公告（最多 3 則）
+      const courseCancellations = await bulletinService.getCourseCancellations(3);
+      
+      // 2. 取得真實的新聞公告（最多 3 則）
+      const bulletins = await bulletinService.getLatestBulletins(3);
+      
+      // 3. 取得真實的新書資料（從資料庫）
+      const { databaseService } = await import('../services/databaseService');
+      const recentBooks = await databaseService.searchBooks('', 3);
+
+      // 準備資料
+      const realData: {
+        newBooks?: any[];
+        news?: any[];
+        cancellations?: any[];
+      } = {};
+
+      // 轉換新書資料
+      if (recentBooks && recentBooks.length > 0) {
+        realData.newBooks = recentBooks
+          .filter((book: any) => book.title) // 過濾掉沒有標題的書籍
+          .map((book: any) => ({
+            title: book.title,
+            author: book.author || '未知作者',
+            pdfUrls: [] // Book 資料表沒有 PDF URL，使用空陣列
+          }));
+      }
+
+      // 轉換新聞資料
+      if (bulletins && bulletins.length > 0) {
+        realData.news = bulletins
+          .filter((bulletin: any) => bulletin.title) // 過濾掉沒有標題的新聞
+          .map((bulletin: any) => {
+            // 清理文字內容：統一換行符號、移除特殊字元
+            const cleanText = (text: string): string => {
+              if (!text) return '';
+              return text
+                .replace(/\r\n/g, '\n')  // 統一換行符號
+                .replace(/\r/g, '\n')     // 移除單獨的 \r
+                .replace(/\t/g, ' ')      // Tab 轉空格
+                .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '') // 移除控制字元
+                .trim();
+            };
+
+            return {
+              title: cleanText(bulletin.title),
+              date: cleanText(bulletin.publication_date || bulletin.created_at || '未知日期'),
+              url: bulletin.url || '',
+              content: cleanText(bulletin.content || '')
+            };
+          });
+      }
+
+      // 轉換停課資料
+      if (courseCancellations && courseCancellations.length > 0) {
+        realData.cancellations = courseCancellations
+          .filter((cancellation: any) => cancellation.course_name && cancellation.cancellation_date) // 過濾掉空資料
+          .map((cancellation: any) => ({
+            courseName: cancellation.course_name,
+            date: cancellation.cancellation_date,
+            instructor: cancellation.instructor_name || '未知講師',
+            location: cancellation.location || ''
+          }));
+      }
+
+      // 清理空陣列
+      if (realData.newBooks && realData.newBooks.length === 0) {
+        delete realData.newBooks;
+      }
+      if (realData.news && realData.news.length === 0) {
+        delete realData.news;
+      }
+      if (realData.cancellations && realData.cancellations.length === 0) {
+        delete realData.cancellations;
+      }
+
+      // 檢查是否有資料
+      const hasData = (realData.newBooks && realData.newBooks.length > 0) ||
+                      (realData.news && realData.news.length > 0) ||
+                      (realData.cancellations && realData.cancellations.length > 0);
+
+      if (!hasData) {
+        await lineMessagingService.sendTextMessage(
+          replyToken,
+          '⚠️ 目前資料庫中沒有足夠的真實資料\n\n請先執行：\n1. 新書爬蟲\n2. 新聞爬蟲\n3. 停課公告爬蟲\n\n或使用 flex1-4 查看測試資料'
+        );
+        return;
+      }
+
+      // 限制總 bubble 數量（LINE 限制最多 10 個）
+      // 摘要 1 個 + 內容最多 9 個
+      let totalBubbles = 1; // 摘要
+      if (realData.newBooks) {
+        const maxBooks = Math.min(realData.newBooks.length, 3);
+        realData.newBooks = realData.newBooks.slice(0, maxBooks);
+        totalBubbles += maxBooks;
+      }
+      if (realData.news && totalBubbles < 10) {
+        const maxNews = Math.min(realData.news.length, 10 - totalBubbles);
+        realData.news = realData.news.slice(0, maxNews);
+        totalBubbles += maxNews;
+      }
+      if (realData.cancellations && totalBubbles < 10) {
+        const maxCancellations = Math.min(realData.cancellations.length, 10 - totalBubbles);
+        realData.cancellations = realData.cancellations.slice(0, maxCancellations);
+      }
+
+      // 創建整合通知
+      console.log('Creating integrated notification with data:');
+      console.log(`- Books: ${realData.newBooks?.length || 0}`);
+      console.log(`- News: ${realData.news?.length || 0}`);
+      console.log(`- Cancellations: ${realData.cancellations?.length || 0}`);
+      
+      const message = flexMessageService.createIntegratedNotification(realData);
+      
+      // 驗證訊息結構
+      const messageJson = JSON.stringify(message);
+      console.log(`Message size: ${messageJson.length} bytes`);
+      
+      // 檢查 Carousel bubble 數量
+      if (message.contents.type === 'carousel') {
+        const bubbleCount = message.contents.contents.length;
+        console.log(`Total bubbles: ${bubbleCount}`);
+        
+        if (bubbleCount > 10) {
+          throw new Error(`Too many bubbles: ${bubbleCount} (max 10)`);
+        }
+      }
+      
+      // 驗證 JSON 是否有效（檢查是否有無效字元）
+      try {
+        JSON.parse(messageJson);
+      } catch (jsonError) {
+        throw new Error(`Invalid JSON structure: ${jsonError}`);
+      }
+      
+      // 發送訊息
+      await lineMessagingService.replyMessage(replyToken, [message]);
+      
+      console.log('✅ Sent real data test notification successfully');
+    } catch (error) {
+      console.error('Error sending real data test:', error);
+      
+      // 嘗試發送錯誤訊息（可能會因為 replyToken 已使用而失敗）
+      try {
+        await lineMessagingService.sendErrorMessage(
+          replyToken,
+          '❌ 發送真實資料測試失敗\n\n請檢查伺服器日誌了解詳情'
+        );
+      } catch (replyError) {
+        // replyToken 已被使用，無法發送錯誤訊息
+        console.error('Cannot send error message: replyToken already used');
+      }
+    }
   }
 
   /**

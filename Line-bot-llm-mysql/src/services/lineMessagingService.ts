@@ -28,8 +28,12 @@ export class LineMessagingService {
         replyToken,
         messages
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to reply message:', error);
+      // 顯示 LINE API 的詳細錯誤訊息
+      if (error.response && error.response.data) {
+        console.error('LINE API Error Details:', JSON.stringify(error.response.data, null, 2));
+      }
       throw new Error('LINE API 回覆失敗');
     }
   }
@@ -246,6 +250,38 @@ export class LineMessagingService {
    */
   async sendUnsubscriptionSuccessMessage(replyToken: string): Promise<void> {
     const flexMessage = this.createUnsubscriptionSuccessFlexMessage();
+    
+    // 添加 Quick Reply 讓用戶可以重新訂閱
+    const quickReply: line.QuickReply = {
+      items: [
+        {
+          type: 'action',
+          action: {
+            type: 'message',
+            label: '📰 訂閱最新消息',
+            text: '訂閱最新消息'
+          }
+        },
+        {
+          type: 'action',
+          action: {
+            type: 'message',
+            label: '⚠️ 訂閱停課通知',
+            text: '訂閱停課通知'
+          }
+        },
+        {
+          type: 'action',
+          action: {
+            type: 'message',
+            label: '📚 訂閱新書通知',
+            text: '訂閱新書通知'
+          }
+        }
+      ]
+    };
+    (flexMessage as any).quickReply = quickReply;
+    
     await this.replyMessage(replyToken, [flexMessage]);
   }
 
@@ -580,38 +616,44 @@ export class LineMessagingService {
 
     const flexMessage = this.createSubscriptionStatusFlexMessage(subscription);
     
-    // 如果用戶未訂閱，添加 Quick Reply 讓用戶選擇訂閱類型
-    if (!subscription.isSubscribed) {
-      const quickReply: line.QuickReply = {
-        items: [
-          {
-            type: 'action',
-            action: {
-              type: 'message',
-              label: '📰 訂閱最新消息',
-              text: '訂閱最新消息'
-            }
-          },
-          {
-            type: 'action',
-            action: {
-              type: 'message',
-              label: '⚠️ 訂閱停課通知',
-              text: '訂閱停課通知'
-            }
-          },
-          {
-            type: 'action',
-            action: {
-              type: 'message',
-              label: '📚 訂閱新書通知',
-              text: '訂閱新書通知'
-            }
+    // 總是添加 Quick Reply 讓用戶可以訂閱其他類型
+    const quickReply: line.QuickReply = {
+      items: [
+        {
+          type: 'action',
+          action: {
+            type: 'message',
+            label: '📰 訂閱最新消息',
+            text: '訂閱最新消息'
           }
-        ]
-      };
-      (flexMessage as any).quickReply = quickReply;
-    }
+        },
+        {
+          type: 'action',
+          action: {
+            type: 'message',
+            label: '⚠️ 訂閱停課通知',
+            text: '訂閱停課通知'
+          }
+        },
+        {
+          type: 'action',
+          action: {
+            type: 'message',
+            label: '📚 訂閱新書通知',
+            text: '訂閱新書通知'
+          }
+        },
+        {
+          type: 'action',
+          action: {
+            type: 'message',
+            label: '❌ 取消訂閱',
+            text: '取消訂閱'
+          }
+        }
+      ]
+    };
+    (flexMessage as any).quickReply = quickReply;
     
     await this.replyMessage(replyToken, [flexMessage]);
   }
