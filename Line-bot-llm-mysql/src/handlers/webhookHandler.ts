@@ -163,8 +163,8 @@ export class WebhookHandler {
         return;
       }
 
-      // 檢查是否為「最新影音」指令
-      if (normalizedMessage === '最新影音') {
+      // 檢查是否為「最新影音」或「最新課程」指令
+      if (normalizedMessage === '最新影音' || normalizedMessage === '最新課程') {
         await dharmaMediaHandler.handleLatestVideosCommand(replyToken);
         return;
       }
@@ -260,10 +260,9 @@ export class WebhookHandler {
         return true;
       }
 
-      // 訂閱影音通知（支援模糊匹配）
-      if (message.includes('訂閱') && (message.includes('影音') || message.includes('視訊') || message.includes('影片') || message.includes('最新影音'))) {
-        // 暫時使用臨時回應，未來可添加專門的 videos 類型
-        await lineMessagingService.sendTextMessage(replyToken, '感謝您的訂閱！目前影音通知功能正在開發中，請先訂閱「新書通知」來接收最新法寶資訊。');
+      // 訂閱影音/課程通知（支援模糊匹配）
+      if (message.includes('訂閱') && (message.includes('影音') || message.includes('視訊') || message.includes('影片') || message.includes('課程') || message.includes('最新影音') || message.includes('最新課程'))) {
+        await this.handleSubscribeToTypeCommand(replyToken, userId, 'videos');
         return true;
       }
 
@@ -276,6 +275,12 @@ export class WebhookHandler {
       // 訂閱停課通知（支援模糊匹配）
       if (message.includes('訂閱') && (message.includes('停課') || message.includes('課程取消'))) {
         await this.handleSubscribeToTypeCommand(replyToken, userId, 'cancellation');
+        return true;
+      }
+
+      // 全部訂閱（訂閱所有類型）
+      if (message.includes('全部訂閱') || message.includes('訂閱全部') || message.includes('訂閱所有')) {
+        await this.handleSubscribeAllCommand(replyToken, userId);
         return true;
       }
 
@@ -341,8 +346,6 @@ export class WebhookHandler {
     }
   }
 
-
-
   /**
    * 處理訂閱特定類型的指令
    * @param replyToken 回覆 token
@@ -352,7 +355,7 @@ export class WebhookHandler {
   private async handleSubscribeToTypeCommand(
     replyToken: string, 
     userId: string, 
-    notificationType: 'news' | 'cancellation' | 'new_books'
+    notificationType: 'news' | 'cancellation' | 'new_books' | 'videos'
   ): Promise<void> {
     console.log(`User ${userId} requesting subscription to ${notificationType}`);
 
@@ -377,6 +380,70 @@ export class WebhookHandler {
   }
 
   /**
+   * 處理全部訂閱指令
+   * @param replyToken 回覆 token
+   * @param userId 用戶 ID
+   */
+  private async handleSubscribeAllCommand(
+    replyToken: string,
+    userId: string
+  ): Promise<void> {
+    console.log(`User ${userId} requesting subscription to all types`);
+
+    const allTypes: ('news' | 'cancellation' | 'new_books' | 'videos')[] = ['news', 'cancellation', 'new_books', 'videos'];
+    
+    try {
+      // 訂閱所有類型
+      for (const type of allTypes) {
+        await subscriptionService.subscribeToType(userId, type);
+      }
+
+      const successText = `✅ 全部訂閱成功！
+
+您已成功訂閱所有通知類型：
+📰 最新消息
+⚠️ 停課通知
+📚 新書通知
+🎬 最新課程
+
+我們會在有新內容時立即通知您。`;
+
+      const quickReply: line.QuickReply = {
+        items: [
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '📊 查看訂閱狀態',
+              text: '訂閱狀態'
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '❌ 取消訂閱',
+              text: '取消訂閱'
+            }
+          }
+        ]
+      };
+
+      const textMessage: line.TextMessage = {
+        type: 'text',
+        text: successText,
+        quickReply
+      };
+
+      await lineMessagingService.replyMessage(replyToken, [textMessage]);
+      console.log(`User ${userId} successfully subscribed to all types`);
+    } catch (error) {
+      await lineMessagingService.sendSubscriptionFailureMessage(replyToken);
+      console.error(`Failed to subscribe user ${userId} to all types:`, error);
+    }
+  }
+
+  /**
    * 處理取消訂閱特定類型的指令
    * @param replyToken 回覆 token
    * @param userId 用戶 ID
@@ -385,7 +452,7 @@ export class WebhookHandler {
   private async handleUnsubscribeFromTypeCommand(
     replyToken: string, 
     userId: string, 
-    notificationType: 'news' | 'cancellation' | 'new_books'
+    notificationType: 'news' | 'cancellation' | 'new_books' | 'videos'
   ): Promise<void> {
     console.log(`User ${userId} requesting unsubscription from ${notificationType}`);
 

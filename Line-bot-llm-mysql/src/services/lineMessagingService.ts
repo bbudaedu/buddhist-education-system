@@ -457,7 +457,7 @@ export class LineMessagingService {
       news: '最新消息',
       cancellation: '停課通知',
       new_books: '新書通知',
-      videos: '影音通知'
+      videos: '最新課程'
     };
 
     const typeIcons = {
@@ -519,7 +519,7 @@ export class LineMessagingService {
       news: '最新消息',
       cancellation: '停課通知',
       new_books: '新書通知',
-      videos: '影音通知'
+      videos: '最新課程'
     };
 
     const typeIcons = {
@@ -581,7 +581,7 @@ export class LineMessagingService {
       news: '最新消息',
       cancellation: '停課通知',
       new_books: '新書通知',
-      videos: '影音通知'
+      videos: '最新課程'
     };
 
     const typeIcons = {
@@ -1344,6 +1344,14 @@ export class LineMessagingService {
             type: 'message',
             label: '📚　訂閱新書通知',
             text: '訂閱新書通知'
+          }
+        },
+        {
+          type: 'action',
+          action: {
+            type: 'message',
+            label: '✅　全部訂閱',
+            text: '全部訂閱'
           }
         },
         {
