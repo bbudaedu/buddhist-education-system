@@ -5,7 +5,7 @@
 /**
  * Notification types that users can subscribe to
  */
-export type NotificationType = 'new_books' | 'news' | 'cancellation';
+export type NotificationType = 'new_books' | 'news' | 'cancellation' | 'videos';
 
 /**
  * User subscription preferences for daily book notifications

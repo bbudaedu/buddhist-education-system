@@ -89,10 +89,10 @@ export class FlexMessageService {
       // 只在有 PDF URLs 時添加 footer（使用 button 元件）
       if (book.pdfUrls && book.pdfUrls.length > 0) {
         const buttons = book.pdfUrls.slice(0, 3).map((pdfUrl, pdfIndex) => {
-          const label = book.pdfUrls!.length > 1 
-            ? `閱讀 PDF ${pdfIndex + 1}` 
+          const label = book.pdfUrls!.length > 1
+            ? `閱讀 PDF ${pdfIndex + 1}`
             : '閱讀 PDF';
-          
+
           return {
             type: 'button' as const,
             action: {
@@ -352,7 +352,382 @@ export class FlexMessageService {
       }
     };
   }
+  /**
+   * 創建法寶圖書 Flex Carousel
+   * @param books 法寶圖書列表
+   * @returns FlexMessage
+   */
+  createDharmaBookCarousel(books: Array<{
+    id?: string;
+    code?: string;
+    title: string;
+    author?: string;
+    description?: string;
+    publishDate?: string | undefined;
+    coverImageUrl?: string | undefined;
+    pdfUrl?: string | undefined;
+    fileSize?: string | undefined;
+  }>): FlexMessage {
+    const bubbles: FlexBubble[] = books.map(book => {
+      const bubble: FlexBubble = {
+        type: 'bubble',
+        size: 'kilo',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            // Top section: horizontal layout with image and basic info
+            {
+              type: 'box',
+              layout: 'horizontal',
+              contents: [
+                // Left: Small cover image
+                {
+                  type: 'box',
+                  layout: 'vertical',
+                  contents: [
+                    {
+                      type: 'image',
+                      url: book.coverImageUrl || 'https://www.budaedu.org/img/logo.png',
+                      size: 'sm',
+                      aspectRatio: '3:4',
+                      aspectMode: 'cover',
+                      backgroundColor: '#f0f0f0'
+                    }
+                  ],
+                  flex: 0,
+                  width: '80px'
+                },
+                // Right: Book basic info (title, author, code)
+                {
+                  type: 'box',
+                  layout: 'vertical',
+                  contents: [
+                    {
+                      type: 'text',
+                      text: book.title,
+                      weight: 'bold',
+                      size: 'xl',
+                      wrap: true,
+                      maxLines: 2,
+                      color: '#333333'
+                    },
+                    ...(book.code ? [{
+                      type: 'text' as const,
+                      text: `編號: ${book.code}`,
+                      size: 'md' as const,
+                      color: '#666666',
+                      margin: 'sm' as const
+                    }] : []),
+                    {
+                      type: 'text',
+                      text: book.author || '佛陀教育基金會',
+                      size: 'md',
+                      color: '#666666',
+                      margin: 'xs'
+                    }
+                  ],
+                  flex: 1,
+                  margin: 'md'
+                }
+              ]
+            },
+            // Bottom section: full-width description
+            ...(book.description ? [{
+              type: 'box' as const,
+              layout: 'vertical' as const,
+              contents: [
+                {
+                  type: 'text' as const,
+                  text: book.description,
+                  size: 'md' as const,
+                  color: '#999999',
+                  wrap: true,
+                  maxLines: 5
+                }
+              ],
+              margin: 'md' as const
+            }] : [])
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            // First row: horizontal 2 buttons
+            {
+              type: 'box',
+              layout: 'horizontal',
+              spacing: 'sm',
+              contents: [
+                {
+                  type: 'button',
+                  action: {
+                    type: 'uri',
+                    label: '查看詳情',
+                    uri: 'https://www.budaedu.org/#/books/applicable/chinese?openExternalBrowser=1'
+                  },
+                  style: 'primary',
+                  height: 'sm',
+                  flex: 1
+                },
+                {
+                  type: 'button',
+                  action: {
+                    type: 'uri',
+                    label: '書籍申請',
+                    uri: 'https://www.budaedu.org/#/books/applicable/chinese?openExternalBrowser=1'
+                  },
+                  style: 'primary',
+                  height: 'sm',
+                  flex: 1
+                }
+              ]
+            },
+            // Second row: PDF button (if exists)
+            ...(book.pdfUrl ? [{
+              type: 'button' as const,
+              action: {
+                type: 'uri' as const,
+                label: book.fileSize ? `📖 閱讀 PDF (${book.fileSize})` : '📖 閱讀 PDF',
+                uri: (() => {
+                  const encodedUrl = encodeURI(book.pdfUrl);
+                  return encodedUrl.includes('openExternalBrowser=1')
+                    ? encodedUrl
+                    : `${encodedUrl}${encodedUrl.includes('?') ? '&' : '?'}openExternalBrowser=1`;
+                })()
+              },
+              style: 'link' as const,
+              height: 'sm' as const
+            }] : []),
+            // Third row: More button
+            {
+              type: 'button',
+              action: {
+                type: 'uri',
+                label: '更多法寶',
+                uri: 'https://www.budaedu.org/#/books/applicable/chinese?openExternalBrowser=1'
+              },
+              style: 'link',
+              height: 'sm'
+            }
+          ]
+        }
+      };
+      return bubble;
+    });
 
+    // Add "View All" bubble at the end
+    const viewAllBubble: FlexBubble = {
+      type: 'bubble',
+      size: 'kilo',
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: '📚',
+            size: '5xl',
+            align: 'center',
+            color: '#4A90E2'
+          },
+          {
+            type: 'text',
+            text: '查看更多法寶',
+            weight: 'bold',
+            size: 'xl',
+            align: 'center',
+            margin: 'md',
+            color: '#333333'
+          },
+          {
+            type: 'text',
+            text: '瀏覽完整法寶目錄',
+            size: 'sm',
+            align: 'center',
+            margin: 'sm',
+            color: '#999999'
+          }
+        ],
+        justifyContent: 'center',
+        height: '300px'
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'button',
+            style: 'primary',
+            action: {
+              type: 'uri',
+              label: '前往網站',
+              uri: 'https://www.budaedu.org/#/books/applicable/chinese?openExternalBrowser=1'
+            }
+          }
+        ]
+      }
+    };
+
+    bubbles.push(viewAllBubble);
+
+    return {
+      type: 'flex',
+      altText: `${books.length} 本最新法寶`,
+      contents: {
+        type: 'carousel',
+        contents: bubbles
+      }
+    };
+  }
+  /**
+   * 創建影音/直播 Flex Carousel
+   * @param streams 影音/直播列表
+   * @returns FlexMessage
+   */
+  createVideoStreamingCarousel(streams: Array<{
+    title: string;
+    instructor?: string | undefined;
+    startDate?: string | undefined;
+    thumbnailUrl?: string | undefined;
+    eventUrl?: string | undefined;
+    isLive: boolean;
+  }>): FlexMessage {
+    const bubbles: FlexBubble[] = streams.map(stream => {
+      const bubble: FlexBubble = {
+        type: 'bubble',
+        size: 'kilo',
+        hero: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'image',
+              url: stream.thumbnailUrl || stream.instructor
+                ? `https://via.placeholder.com/300x200?text=${encodeURIComponent(stream.instructor || 'Instructor')}`
+                : 'https://via.placeholder.com/300x200?text=Video',
+              size: 'full',
+              aspectRatio: '3:2',
+              aspectMode: 'cover'
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                {
+                  type: 'text',
+                  text: stream.isLive ? '🔴 直播中' : '📹 錄影',
+                  color: '#ffffff',
+                  size: 'xs',
+                  weight: 'bold'
+                }
+              ],
+              position: 'absolute',
+              offsetTop: '10px',
+              offsetStart: '10px',
+              paddingAll: '5px',
+              backgroundColor: stream.isLive ? '#ff0000' : '#1e90ff',
+              cornerRadius: '5px'
+            }
+          ]
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: stream.title,
+              weight: 'bold',
+              size: 'lg',
+              wrap: true,
+              maxLines: 2
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              margin: 'md',
+              spacing: 'sm',
+              contents: [
+                ...(stream.instructor ? [{
+                  type: 'box' as const,
+                  layout: 'baseline' as const,
+                  contents: [
+                    {
+                      type: 'text' as const,
+                      text: '講師:',
+                      size: 'sm' as const,
+                      color: '#aaaaaa',
+                      flex: 0
+                    },
+                    {
+                      type: 'text' as const,
+                      text: stream.instructor,
+                      size: 'sm' as const,
+                      color: '#666666',
+                      wrap: true,
+                      flex: 1
+                    }
+                  ]
+                }] : []),
+                ...(stream.startDate ? [{
+                  type: 'box' as const,
+                  layout: 'baseline' as const,
+                  contents: [
+                    {
+                      type: 'text' as const,
+                      text: '時間:',
+                      size: 'sm' as const,
+                      color: '#aaaaaa',
+                      flex: 0
+                    },
+                    {
+                      type: 'text' as const,
+                      text: stream.startDate,
+                      size: 'sm' as const,
+                      color: '#666666',
+                      flex: 1
+                    }
+                  ]
+                }] : [])
+              ]
+            }
+          ]
+        }
+      };
+
+      // Add footer only if eventUrl exists
+      if (stream.eventUrl) {
+        bubble.footer = {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              action: {
+                type: 'uri',
+                label: stream.isLive ? '🎥 觀看直播' : '📺 觀看影片',
+                uri: stream.eventUrl
+              }
+            }
+          ]
+        };
+      }
+
+      return bubble;
+    });
+    return {
+      type: 'flex',
+      altText: `${streams.length} 則最新影音`,
+      contents: {
+        type: 'carousel',
+        contents: bubbles
+      }
+    };
+  }
   /**
    * 創建整合通知 Flex Message
    * 當用戶訂閱多種類型時，整合成一則訊息

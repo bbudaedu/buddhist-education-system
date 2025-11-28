@@ -2,11 +2,8 @@ import * as line from '@line/bot-sdk';
 import { lineConfig } from '../config/index';
 import { Book } from '../types/book';
 import { UserSubscription } from '../types/subscription';
+import { subscriptionCarouselTemplate } from './flexMessageTemplates/subscriptionCarouselTemplate';
 
-/**
- * LINE Messaging Service
- * 負責透過 LINE Messaging API 發送訊息給用戶
- */
 export class LineMessagingService {
   private client: line.messagingApi.MessagingApiClient;
 
@@ -39,6 +36,26 @@ export class LineMessagingService {
   }
 
   /**
+   * 主動發送訊息給用戶
+   * @param userId - LINE 用戶 ID
+   * @param messages - 要發送的訊息陣列
+   */
+  async pushMessage(userId: string, messages: line.Message[]): Promise<void> {
+    try {
+      await this.client.pushMessage({
+        to: userId,
+        messages
+      });
+    } catch (error: any) {
+      console.error('Failed to push message:', error);
+      if (error.response && error.response.data) {
+        console.error('LINE API Error Details:', JSON.stringify(error.response.data, null, 2));
+      }
+      throw new Error('LINE API 推送失敗');
+    }
+  }
+
+  /**
    * 發送簡單文字訊息
    * @param replyToken - LINE 提供的回覆 token
    * @param text - 要發送的文字內容
@@ -46,7 +63,7 @@ export class LineMessagingService {
   async sendTextMessage(replyToken: string, text: string): Promise<void> {
     // 確保文字內容不為空
     const messageText = text && text.trim() !== '' ? text : '抱歉，系統暫時無法處理您的請求，請稍後再試。';
-    
+
     const textMessage: line.TextMessage = {
       type: 'text',
       text: messageText
@@ -64,7 +81,7 @@ export class LineMessagingService {
   async sendBookQueryResponse(replyToken: string, text: string, books: Book[]): Promise<void> {
     // 確保回覆文字不為空
     const responseText = text && text.trim() !== '' ? text : '抱歉，系統暫時無法處理您的請求，請稍後再試。';
-    
+
     // 訊息格式判斷邏輯：1-2 本書用文字，3+ 本書用 Carousel
     if (books.length >= 3) {
       await this.sendCarouselMessage(replyToken, books, responseText);
@@ -86,10 +103,10 @@ export class LineMessagingService {
     const carouselColumns = limitedBooks.map(book => ({
       // 標題限制 40 字元
       title: book.title.length > 40 ? book.title.substring(0, 37) + '...' : book.title,
-      
+
       // 文字內容
       text: `館藏地：${book.library_branch}\n位置：${book.shelf_location}\n庫存：${book.quantity} 本`,
-      
+
       // 動作按鈕
       actions: [
         {
@@ -250,7 +267,7 @@ export class LineMessagingService {
    */
   async sendUnsubscriptionSuccessMessage(replyToken: string): Promise<void> {
     const flexMessage = this.createUnsubscriptionSuccessFlexMessage();
-    
+
     // 添加 Quick Reply 讓用戶可以重新訂閱
     const quickReply: line.QuickReply = {
       items: [
@@ -281,7 +298,7 @@ export class LineMessagingService {
       ]
     };
     (flexMessage as any).quickReply = quickReply;
-    
+
     await this.replyMessage(replyToken, [flexMessage]);
   }
 
@@ -371,7 +388,7 @@ export class LineMessagingService {
    * @param notificationType - 通知類型
    */
   async sendSubscriptionTypeSuccessMessage(
-    replyToken: string, 
+    replyToken: string,
     notificationType: 'news' | 'cancellation' | 'new_books'
   ): Promise<void> {
     const typeNames = {
@@ -431,7 +448,7 @@ export class LineMessagingService {
    * @param notificationType - 通知類型
    */
   async sendSubscriptionTypeAlreadyActiveMessage(
-    replyToken: string, 
+    replyToken: string,
     notificationType: 'news' | 'cancellation' | 'new_books'
   ): Promise<void> {
     const typeNames = {
@@ -491,7 +508,7 @@ export class LineMessagingService {
    * @param notificationType - 通知類型
    */
   async sendUnsubscriptionTypeSuccessMessage(
-    replyToken: string, 
+    replyToken: string,
     notificationType: 'news' | 'cancellation' | 'new_books'
   ): Promise<void> {
     const typeNames = {
@@ -551,7 +568,7 @@ export class LineMessagingService {
    * @param notificationType - 通知類型
    */
   async sendNotSubscribedToTypeMessage(
-    replyToken: string, 
+    replyToken: string,
     notificationType: 'news' | 'cancellation' | 'new_books'
   ): Promise<void> {
     const typeNames = {
@@ -615,7 +632,7 @@ export class LineMessagingService {
     }
 
     const flexMessage = this.createSubscriptionStatusFlexMessage(subscription);
-    
+
     // 總是添加 Quick Reply 讓用戶可以訂閱其他類型
     const quickReply: line.QuickReply = {
       items: [
@@ -654,7 +671,7 @@ export class LineMessagingService {
       ]
     };
     (flexMessage as any).quickReply = quickReply;
-    
+
     await this.replyMessage(replyToken, [flexMessage]);
   }
 
@@ -992,13 +1009,13 @@ export class LineMessagingService {
     const statusColor = subscription.isSubscribed ? '#27AE60' : '#E74C3C';
     const statusText = subscription.isSubscribed ? '已啟用' : '已停用';
     const statusIcon = subscription.isSubscribed ? '✅' : '❌';
-    
-    const lastNotificationText = subscription.lastNotificationSent 
+
+    const lastNotificationText = subscription.lastNotificationSent
       ? subscription.lastNotificationSent.toLocaleDateString('zh-TW', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit'
-        })
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      })
       : '尚未發送';
 
     const subscriptionDate = subscription.subscriptionDate.toLocaleDateString('zh-TW', {
@@ -1020,7 +1037,7 @@ export class LineMessagingService {
       cancellation: '停課通知'
     };
 
-    const subscribedTypes = subscription.notificationTypes.map(type => 
+    const subscribedTypes = subscription.notificationTypes.map(type =>
       `${typeIcons[type] || '📌'} ${typeNames[type] || type}`
     );
 
@@ -1293,7 +1310,7 @@ export class LineMessagingService {
    */
   async sendBulletinsCarousel(replyToken: string, bulletins: any[], courseCancellations: any[] = []): Promise<void> {
     const flexMessage = this.createBulletinsCarouselFlexMessage(bulletins, courseCancellations);
-    
+
     // 添加 Quick Reply 按鈕（使用全形字符放大）
     const quickReply: line.QuickReply = {
       items: [
@@ -1355,7 +1372,7 @@ export class LineMessagingService {
   private createBulletinsCarouselFlexMessage(bulletins: any[], courseCancellations: any[] = []): line.FlexMessage {
     // 建立停課公告卡片（第一張）
     let courseCancelContent = '目前沒有停課公告';
-    
+
     if (courseCancellations.length > 0) {
       courseCancelContent = courseCancellations.map((cancel: any) => {
         const date = new Date(cancel.cancelDate).toLocaleDateString('zh-TW', {
@@ -1364,7 +1381,7 @@ export class LineMessagingService {
         });
         return `${date} ${cancel.courseTitle}`;
       }).join('\n');
-      
+
       // 限制長度
       if (courseCancelContent.length > 100) {
         courseCancelContent = courseCancelContent.substring(0, 97) + '...';
@@ -1666,6 +1683,15 @@ export class LineMessagingService {
         }
       }
     };
+  }
+
+  /**
+   * 發送訂閱類型輪播訊息
+   * @param replyToken - LINE 提供的回覆 token
+   */
+  async sendSubscriptionCarousel(replyToken: string): Promise<void> {
+    const carouselMessage = subscriptionCarouselTemplate.createSubscriptionCarousel();
+    await this.replyMessage(replyToken, [carouselMessage]);
   }
 }
 

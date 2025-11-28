@@ -246,6 +246,13 @@ export class WebhookHandler {
         return true;
       }
 
+      // 訂閱影音通知（支援模糊匹配）
+      if (message.includes('訂閱') && (message.includes('影音') || message.includes('視訊') || message.includes('影片') || message.includes('最新影音'))) {
+        // 暫時使用臨時回應，未來可添加專門的 videos 類型
+        await lineMessagingService.sendTextMessage(replyToken, '感謝您的訂閱！目前影音通知功能正在開發中，請先訂閱「新書通知」來接收最新法寶資訊。');
+        return true;
+      }
+
       // 訂閱最新消息（支援模糊匹配）
       if (message.includes('訂閱') && (message.includes('最新消息') || message.includes('新聞') || message.includes('消息'))) {
         await this.handleSubscribeToTypeCommand(replyToken, userId, 'news');
