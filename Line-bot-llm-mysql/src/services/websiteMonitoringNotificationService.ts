@@ -2,6 +2,12 @@ import { messagingApi } from '@line/bot-sdk';
 import { config } from '../config';
 import { subscriptionService } from './subscriptionService';
 import { NotificationType } from '../types/subscription';
+import { 
+  flexMessageService, 
+  BookNotification, 
+  NewsNotification, 
+  CancellationNotification 
+} from './flexMessageService';
 
 /**
  * Website Monitoring Notification Service
@@ -18,6 +24,12 @@ export interface WebsiteMonitoringNotification {
   metadata?: {
     itemCount?: number;
     priority?: 'high' | 'medium' | 'low';
+  };
+  // 新增結構化資料支援
+  structuredData?: {
+    newBooks?: BookNotification[];
+    news?: NewsNotification[];
+    cancellations?: CancellationNotification[];
   };
 }
 
@@ -42,6 +54,7 @@ export class WebsiteMonitoringNotificationService {
 
   /**
    * 處理來自 Python 的網站監控通知
+   * 支援整合通知：如果用戶訂閱多種類型，整合成一則 Flex Carousel 訊息
    */
   async handleNotification(notification: WebsiteMonitoringNotification): Promise<{
     success: boolean;
@@ -51,7 +64,12 @@ export class WebsiteMonitoringNotificationService {
     try {
       console.log(`📢 Processing website monitoring notification (type: ${notification.type})`);
 
-      // 確定通知類型（支援兩種格式：直接在根層級或在 metadata 中，用於向後相容）
+      // 如果有結構化資料，使用整合通知模式
+      if (notification.structuredData) {
+        return await this.handleIntegratedNotification(notification);
+      }
+
+      // 傳統模式：單一類型通知
       const contentType = notification.contentType || 
                          (notification.metadata as any)?.contentType || 
                          'news';
@@ -72,7 +90,7 @@ export class WebsiteMonitoringNotificationService {
 
       console.log(`📤 Sending to ${subscribedUsers.length} subscribed users`);
 
-      // 格式化訊息
+      // 格式化訊息（文字模式）
       const formattedMessage = this.formatNotificationMessage(notification);
 
       // 發送給每個訂閱用戶
@@ -116,6 +134,131 @@ export class WebsiteMonitoringNotificationService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('❌ Error handling website monitoring notification:', errorMessage);
+      return {
+        success: false,
+        messagesSent: 0,
+        error: errorMessage,
+      };
+    }
+  }
+
+  /**
+   * 處理整合通知
+   * 根據用戶訂閱的類型，智能整合訊息
+   */
+  private async handleIntegratedNotification(notification: WebsiteMonitoringNotification): Promise<{
+    success: boolean;
+    messagesSent: number;
+    error?: string;
+  }> {
+    try {
+      console.log('📢 Processing integrated notification with structured data');
+
+      const { structuredData } = notification;
+      if (!structuredData) {
+        throw new Error('Structured data is required for integrated notification');
+      }
+
+      // 取得所有訂閱用戶
+      const allUsers = await subscriptionService.getSubscribedUsers();
+      
+      if (allUsers.length === 0) {
+        console.log('ℹ️ No subscribed users found');
+        return {
+          success: true,
+          messagesSent: 0,
+        };
+      }
+
+      let successCount = 0;
+      let failCount = 0;
+
+      // 為每個用戶根據其訂閱類型創建個性化訊息
+      for (const user of allUsers) {
+        try {
+          const userNotificationTypes = user.notificationTypes;
+          
+          // 根據用戶訂閱類型過濾資料
+          const filteredData: {
+            newBooks?: BookNotification[];
+            news?: NewsNotification[];
+            cancellations?: CancellationNotification[];
+          } = {};
+
+          if (userNotificationTypes.includes('new_books') && structuredData.newBooks) {
+            filteredData.newBooks = structuredData.newBooks;
+          }
+          if (userNotificationTypes.includes('news') && structuredData.news) {
+            filteredData.news = structuredData.news;
+          }
+          if (userNotificationTypes.includes('cancellation') && structuredData.cancellations) {
+            filteredData.cancellations = structuredData.cancellations;
+          }
+
+          // 如果用戶沒有訂閱任何有資料的類型，跳過
+          const hasData = Object.keys(filteredData).length > 0;
+          if (!hasData) {
+            console.log(`ℹ️ User ${user.lineUserId} has no matching subscriptions, skipping`);
+            continue;
+          }
+
+          // 創建訊息
+          let message;
+          const subscribedTypesCount = Object.keys(filteredData).length;
+
+          if (subscribedTypesCount === 1) {
+            // 單一類型：使用專用 Carousel
+            if (filteredData.newBooks) {
+              message = flexMessageService.createNewBooksCarousel(filteredData.newBooks);
+            } else if (filteredData.news) {
+              message = flexMessageService.createNewsCarousel(filteredData.news);
+            } else if (filteredData.cancellations) {
+              message = flexMessageService.createCancellationCarousel(filteredData.cancellations);
+            }
+          } else {
+            // 多種類型：使用整合 Carousel
+            message = flexMessageService.createIntegratedNotification(filteredData);
+          }
+
+          if (!message) {
+            console.log(`⚠️ Failed to create message for user ${user.lineUserId}`);
+            continue;
+          }
+
+          // 發送訊息
+          await this.client.pushMessage({
+            to: user.lineUserId,
+            messages: [message],
+          });
+
+          successCount++;
+          
+          // 更新最後通知時間
+          await subscriptionService.updateLastNotificationSent(user.lineUserId);
+          
+          console.log(`✅ Sent integrated notification to user ${user.lineUserId} (${subscribedTypesCount} types)`);
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          console.error(`❌ Failed to send to user ${user.lineUserId}:`, errorMessage);
+          failCount++;
+        }
+      }
+
+      console.log(`✅ Integrated notification sent: ${successCount} success, ${failCount} failed`);
+
+      const result: { success: boolean; messagesSent: number; error?: string } = {
+        success: failCount === 0,
+        messagesSent: successCount,
+      };
+
+      if (failCount > 0) {
+        result.error = `${failCount} messages failed to send`;
+      }
+
+      return result;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('❌ Error handling integrated notification:', errorMessage);
       return {
         success: false,
         messagesSent: 0,

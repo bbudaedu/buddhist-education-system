@@ -24,6 +24,7 @@ from progress_manager import ProgressManager
 # Import specialized scrapers and processors
 from carousel_scraper import CarouselScraper
 from bulletin_scraper import BulletinScraper
+from book_scraper import BookScraper
 # NewsProcessor replaced by run_news_scraper_correct.py
 from media_processor import MediaProcessor
 
@@ -203,6 +204,15 @@ class WebsiteMonitor:
                 )
                 self.logger.info("BulletinScraper initialized")
             
+            # Initialize BookScraper for new book monitoring
+            if monitoring_config['content_types'].get('new_books', {}).get('enabled', True):
+                self.scrapers['books'] = BookScraper(
+                    chromedriver_path=chromedriver_path,
+                    download_dir=download_dir,
+                    logger=self.logger
+                )
+                self.logger.info("BookScraper initialized for new book monitoring")
+            
             # News processing uses run_news_scraper_correct.py (no initialization needed)
             if monitoring_config['content_types']['news']['enabled']:
                 # Add a placeholder to indicate news processing is enabled
@@ -324,6 +334,12 @@ class WebsiteMonitor:
                 bulletin_result = self.process_bulletin_content()
                 all_content['cancellation'] = bulletin_result.get('content', [])
                 processing_results['cancellation'] = bulletin_result
+            
+            # Process new books content
+            if 'books' in self.scrapers:
+                books_result = self.process_books_content()
+                all_content['new_books'] = books_result.get('content', [])
+                processing_results['new_books'] = books_result
             
             # Process news content
             if 'news' in self.processors:
@@ -460,6 +476,87 @@ class WebsiteMonitor:
                 'error': error_msg,
                 'content_type': 'cancellation'
             }
+    
+    def process_books_content(self) -> Dict[str, Any]:
+        """
+        Process new books content monitoring
+        
+        Returns:
+            Dict: Processing results with content and status
+        """
+        try:
+            self.logger.info("Processing new books content...")
+            
+            book_scraper = self.scrapers['books']
+            
+            # Setup driver
+            book_scraper.setup_driver()
+            
+            # Navigate to website
+            target_url = self.config.get('target_url', 'https://www.budaedu.org')
+            if not book_scraper.navigate_to_website(target_url):
+                raise Exception("Failed to navigate to website")
+            
+            # Wait for page load
+            if not book_scraper.wait_for_page_load():
+                raise Exception("Page load timeout")
+            
+            # Find new books using baseline
+            baseline_title = self.config.get('baseline_book_title', '')
+            if not baseline_title:
+                self.logger.warning("No baseline_book_title configured, skipping new book detection")
+                return {
+                    'success': True,
+                    'content': [],
+                    'message': 'No baseline configured',
+                    'content_type': 'new_books'
+                }
+            
+            new_book_cards = book_scraper.find_new_books(baseline_title)
+            
+            if new_book_cards:
+                self.logger.info(f"Found {len(new_book_cards)} new books")
+                
+                # Extract book info (without downloading PDFs for monitoring)
+                new_books = []
+                for book_card in new_book_cards:
+                    book_info = book_scraper.extract_book_info(book_card)
+                    if book_info:
+                        new_books.append(book_info)
+                
+                self.logger.info(f"Extracted info for {len(new_books)} new books")
+                
+                return {
+                    'success': True,
+                    'content': new_books,
+                    'message': f'Successfully processed {len(new_books)} new books',
+                    'content_type': 'new_books'
+                }
+            else:
+                self.logger.info("No new books found")
+                return {
+                    'success': True,
+                    'content': [],
+                    'message': 'No new books found',
+                    'content_type': 'new_books'
+                }
+                
+        except Exception as e:
+            error_msg = f"Error processing new books content: {e}"
+            self.logger.error(error_msg)
+            return {
+                'success': False,
+                'content': [],
+                'error': error_msg,
+                'content_type': 'new_books'
+            }
+        finally:
+            # Clean up book scraper resources
+            if 'books' in self.scrapers:
+                try:
+                    self.scrapers['books'].cleanup()
+                except Exception as cleanup_error:
+                    self.logger.warning(f"Book scraper cleanup error: {cleanup_error}")
     
     def process_news_content(self) -> Dict[str, Any]:
         """

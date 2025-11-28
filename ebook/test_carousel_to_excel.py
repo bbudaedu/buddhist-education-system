@@ -10,7 +10,7 @@ import sys
 from datetime import datetime
 from carousel_scraper import CarouselScraper
 from document_generator import DocumentGenerator
-from enhanced_data_synchronizer import EnhancedDataSynchronizer
+
 
 # Set up logging
 logging.basicConfig(
@@ -91,22 +91,31 @@ def main():
             logger=logger
         )
         
-        # Initialize data synchronizer
-        logger.info("初始化 EnhancedDataSynchronizer...")
-        config = {
-            'download_dir': download_dir,
-            'mysql': {'enabled': False}
-        }
-        
-        data_synchronizer = EnhancedDataSynchronizer(
-            document_generator=document_generator,
-            config=config,
-            logger=logger
-        )
+        # Prepare data for Excel
+        logger.info("\n準備輪播資料...")
+        excel_data = []
+        for banner in banners:
+            excel_row = {
+                'ID': banner.get('carousel_id', ''),
+                '橫幅標題': banner.get('banner_title', ''),
+                '圖片URL': banner.get('image_url', ''),
+                '活動連結': banner.get('activity_link', ''),
+                '課程名稱': banner.get('course_name', ''),
+                '地點': banner.get('location', ''),
+                '講師': banner.get('instructor', ''),
+                '描述': banner.get('description', ''),
+                '提取時間': banner.get('extraction_timestamp', '')
+            }
+            excel_data.append(excel_row)
         
         # Synchronize to Excel
         logger.info("\n將輪播資料同步到 Excel...")
-        success = data_synchronizer.sync_content_type('carousel', banners)
+        filename = f"carousel_monitoring_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        success = document_generator.create_monitoring_excel(
+            filename=filename,
+            content_type='carousel',
+            data=excel_data
+        )
         
         if success:
             logger.info("✓ Excel 檔案生成成功")

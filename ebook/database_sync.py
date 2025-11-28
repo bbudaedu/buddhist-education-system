@@ -1,13 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Database Sync Manager for Website Monitoring System
-資料庫同步管理器，用於網站監控系統
-
-This module provides integration with the LINE bot MySQL database
-for synchronizing website monitoring content.
-"""
-
 import os
 import json
 import logging
@@ -15,12 +5,7 @@ import requests
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
-
 class DatabaseSyncManager:
-    """
-    Manages synchronization with the LINE bot MySQL database.
-    """
-    
     def __init__(self, logger: Optional[logging.Logger] = None):
         """
         Initialize the Database Sync Manager.
@@ -89,99 +74,7 @@ class DatabaseSyncManager:
         Returns:
             bool: True if sync is enabled
         """
-        return self.config.get('enabled', False)
-    
-    def sync_website_monitoring_content(self, content_data: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Any]:
-        """
-        Sync website monitoring content to the LINE bot database.
-        
-        Args:
-            content_data: Dictionary with content type as key and data list as value
-            
-        Returns:
-            Dict: Sync result information
-        """
-        if not self.is_sync_enabled():
-            return {
-                'success': True,
-                'message': 'Database sync is disabled',
-                'total_synced': 0
-            }
-        
-        try:
-            self.logger.info("Starting website monitoring content sync to database")
-            
-            # Prepare sync payload
-            sync_payload = {
-                'content_data': content_data,
-                'sync_timestamp': datetime.now().isoformat(),
-                'source': 'website_monitoring'
-            }
-            
-            # Make API request to LINE bot service
-            response = self._make_sync_request('/api/sync/website-monitoring', sync_payload)
-            
-            if response.get('success', False):
-                total_synced = response.get('total_synced', 0)
-                self.logger.info(f"Database sync successful: {total_synced} items synced")
-                
-                return {
-                    'success': True,
-                    'total_synced': total_synced,
-                    'details': response.get('details', {}),
-                    'message': f'Successfully synced {total_synced} items to database'
-                }
-            else:
-                error_msg = response.get('error', 'Unknown database sync error')
-                self.logger.error(f"Database sync failed: {error_msg}")
-                
-                return {
-                    'success': False,
-                    'error': error_msg,
-                    'total_synced': 0
-                }
-                
-        except Exception as e:
-            self.logger.error(f"Database sync exception: {e}")
-            return {
-                'success': False,
-                'error': str(e),
-                'total_synced': 0
-            }
-    
-    def auto_sync_after_generation(self, excel_path: str) -> Dict[str, Any]:
-        """
-        Automatically sync data after Excel generation (for backward compatibility).
-        
-        Args:
-            excel_path: Path to the generated Excel file
-            
-        Returns:
-            Dict: Sync result information
-        """
-        if not self.is_sync_enabled():
-            return {
-                'success': True,
-                'message': 'Database sync is disabled'
-            }
-        
-        try:
-            self.logger.info(f"Auto-sync triggered for Excel file: {excel_path}")
-            
-            # For now, just log the auto-sync trigger
-            # In a full implementation, this would parse the Excel file and sync the data
-            
-            return {
-                'success': True,
-                'message': f'Auto-sync completed for {excel_path}'
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Auto-sync failed: {e}")
-            return {
-                'success': False,
-                'error': str(e)
-            }
+        return self.config.get('enabled', True)
     
     def _make_sync_request(self, endpoint: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -317,6 +210,36 @@ class DatabaseSyncManager:
                 'sync_enabled': False,
                 'error': str(e)
             }
+
+    def sync_website_monitoring_content(self, structured_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Sync website monitoring content to database via API.
+        
+        Args:
+            structured_data: Dictionary containing structured data for sync
+            
+        Returns:
+            Dict: Sync result
+        """
+        try:
+            if not self.is_sync_enabled():
+                return {'success': True, 'message': 'Sync disabled'}
+                
+            self.logger.info("Syncing website monitoring content to database...")
+            
+            # Call the API endpoint
+            response = self._make_sync_request('/api/sync/website-monitoring', structured_data)
+            
+            if response.get('success', False):
+                self.logger.info("Website monitoring content synced successfully")
+            else:
+                self.logger.warning(f"Website monitoring content sync failed: {response.get('error', 'Unknown error')}")
+                
+            return response
+            
+        except Exception as e:
+            self.logger.error(f"Error syncing website monitoring content: {e}")
+            return {'success': False, 'error': str(e)}
 
 
 # Create singleton instance

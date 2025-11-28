@@ -1,0 +1,43 @@
+{
+    "name": "dharma-media-e2e-tests",
+    "version": "1.0.0",
+    "description": "E2E automated testing for LINE Dharma Media Feature (M2)",
+    "scripts": {
+        "test": "playwright test",
+        "test:headed": "playwright test --headed",
+        "test:debug": "playwright test --debug",
+        "test:ui": "playwright test --ui",
+        "test:chrome": "playwright test --project=chromium",
+        "test:report": "playwright show-report",
+        "test:books": "playwright test dharma-books.spec.ts",
+        "test:videos": "playwright test dharma-videos.spec.ts",
+        "test:performance": "playwright test performance.spec.ts",
+        "report:generate": "ts-node scripts/generate-test-report.ts",
+        "report:diff": "ts-node scripts/generate-code-diff.ts",
+        "notify:bugs": "ts-node scripts/notify-bugs.ts",
+        "install:browsers": "playwright install chromium"
+    },
+    "keywords": [
+        "e2e",
+        "testing",
+        "playwright",
+        "qa",
+        "automation",
+        "line-bot",
+        "dharma-media"
+    ],
+    "author": "QA Automation Team",
+    "license": "MIT",
+    "devDependencies": {
+        "@playwright/test": "^1.40.0",
+        "@types/node": "^20.0.0",
+        "typescript": "^5.0.0",
+        "ts-node": "^10.9.0"
+    },
+    "dependencies": {
+        "axios": "^1.6.0",
+        "dotenv": "^16.0.0",
+        "simple-git": "^3.20.0",
+        "nodemailer": "^6.9.0"
+    }
+}

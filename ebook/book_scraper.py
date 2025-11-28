@@ -1,16 +1,12 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Web Scraper Module for Buddhist Education New Book System
-使用 Selenium 爬取佛教教育網站的新書資訊
-"""
-
 import os
 import time
 import logging
+import json
+import sys
 from selenium import webdriver
-from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
@@ -898,12 +894,16 @@ class BookScraper:
         self.logger.info("=" * 50)
         
         return summary
+
 # Example usage and main function for testing
 def main():
     """
     Example usage of BookScraper class
     """
     import logging
+    import json
+    import sys
+    import os
     
     # Set up logging
     logging.basicConfig(
@@ -916,11 +916,30 @@ def main():
     )
     logger = logging.getLogger(__name__)
     
-    # Configuration
-    chromedriver_path = "chromedriver-win64\\chromedriver.exe"
-    download_dir = "downloads"
-    target_url = "https://www.budaedu.org/#/books/applicable/chinese"
-    baseline_title = "CH754-02"
+    # Load configuration
+    config_path = "config.json"
+    config = {}
+    
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            logger.info(f"已載入配置檔案: {config_path}")
+        except Exception as e:
+            logger.error(f"載入配置檔案失敗: {e}")
+    else:
+        logger.warning(f"找不到配置檔案 {config_path}，將使用預設值")
+
+    # Configuration with defaults from config.json
+    chromedriver_path = config.get('chromedriver_path', "chromedriver-win64\\chromedriver.exe")
+    download_dir = config.get('download_dir', "downloads")
+    target_url = config.get('target_url', "https://www.budaedu.org/#/books/applicable/chinese")
+    baseline_title = config.get('baseline_book_title', "CH754-02")
+    
+    logger.info(f"配置資訊:")
+    logger.info(f"  目標網址: {target_url}")
+    logger.info(f"  基準書籍: {baseline_title}")
+    logger.info(f"  下載目錄: {download_dir}")
     
     scraper = None
     try:

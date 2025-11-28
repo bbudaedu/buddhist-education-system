@@ -32,9 +32,12 @@ class UnifiedNotificationService:
     def send_unified_notification(self, all_content: Dict[str, List[Dict[str, Any]]]) -> bool:
         """
         發送統一通知訊息
+        支援兩種模式：
+        1. 傳統模式：分開發送文字訊息（向後相容）
+        2. Flex Message 模式：發送結構化資料，由 LINE Bot 創建 Flex Carousel
         
         Args:
-            all_content: 所有內容 {'cancellation': [...], 'news': [...], ...}
+            all_content: 所有內容 {'cancellation': [...], 'news': [...], 'new_books': [...], ...}
             
         Returns:
             bool: True if successful
@@ -43,37 +46,22 @@ class UnifiedNotificationService:
             # 準備通知內容
             cancellations = all_content.get('cancellation', [])
             news_items = all_content.get('news', [])[:5]  # 只取最新 5 筆
+            new_books = all_content.get('new_books', [])  # 新書通知
             
             # 如果沒有任何內容，不發送通知
-            if not cancellations and not news_items:
+            if not cancellations and not news_items and not new_books:
                 self.logger.info("沒有新內容，跳過通知")
                 return True
             
-            # 格式化 LINE 訊息（分開發送）
+            # 發送 LINE 通知（使用 Flex Message 整合模式）
             line_success = True
             if self.line_service and self.line_service.is_enabled():
-                # 1. 發送停課通知
-                if cancellations:
-                    cancellation_msg = self._format_cancellation_message(cancellations)
-                    success = self.line_service.send_broadcast_message(cancellation_msg, 'cancellation')
-                    if success:
-                        self.logger.info("LINE 停課通知發送成功")
-                    else:
-                        self.logger.error("LINE 停課通知發送失敗")
-                        line_success = False
-                
-                # 2. 發送新聞公告
-                if news_items:
-                    news_msg = self._format_news_message(news_items)
-                    success = self.line_service.send_broadcast_message(news_msg, 'news')
-                    if success:
-                        self.logger.info("LINE 新聞公告發送成功")
-                    else:
-                        self.logger.error("LINE 新聞公告發送失敗")
-                        line_success = False
+                line_success = self._send_integrated_line_notification(
+                    cancellations, news_items, new_books
+                )
             
             # 格式化 Email 訊息（Email 仍然統一發送）
-            email_subject, email_body = self._format_email_message(cancellations, news_items)
+            email_subject, email_body = self._format_email_message(cancellations, news_items, new_books)
             
             # 發送 Email 通知
             email_success = True
@@ -92,6 +80,73 @@ class UnifiedNotificationService:
             
         except Exception as e:
             self.logger.error(f"發送統一通知時發生錯誤: {e}", exc_info=True)
+            return False
+    
+    def _send_integrated_line_notification(self, cancellations: List[Dict], 
+                                          news_items: List[Dict], 
+                                          new_books: List[Dict]) -> bool:
+        """
+        發送整合的 LINE 通知（使用 Flex Message）
+        
+        Args:
+            cancellations: 停課通知列表
+            news_items: 新聞公告列表
+            new_books: 新書列表
+            
+        Returns:
+            bool: True if successful
+        """
+        try:
+            # 準備結構化資料
+            structured_data = {}
+            
+            # 轉換新書資料
+            if new_books:
+                structured_data['newBooks'] = [
+                    {
+                        'title': book.get('title', '未知書名'),
+                        'author': book.get('author', '未知作者'),
+                        'pdfUrls': book.get('pdf_urls', [])  # 支援多個 PDF
+                    }
+                    for book in new_books
+                ]
+            
+            # 轉換新聞資料
+            if news_items:
+                structured_data['news'] = [
+                    {
+                        'title': item.get('title', '未知標題'),
+                        'date': item.get('publication_date', item.get('date', '未知日期')),
+                        'url': item.get('url', ''),
+                        'content': item.get('content', '')
+                    }
+                    for item in news_items
+                ]
+            
+            # 轉換停課資料
+            if cancellations:
+                structured_data['cancellations'] = [
+                    {
+                        'courseName': item.get('course_name', '未知課程'),
+                        'date': item.get('cancellation_date', '未知日期'),
+                        'instructor': item.get('instructor_name', '未知講師'),
+                        'location': item.get('location', '')
+                    }
+                    for item in cancellations
+                ]
+            
+            # 發送整合通知
+            success = self.line_service.send_integrated_notification(structured_data)
+            
+            if success:
+                self.logger.info("LINE 整合通知發送成功（Flex Carousel）")
+            else:
+                self.logger.error("LINE 整合通知發送失敗")
+            
+            return success
+            
+        except Exception as e:
+            self.logger.error(f"發送整合 LINE 通知時發生錯誤: {e}", exc_info=True)
             return False
     
     def _format_cancellation_message(self, cancellations: List[Dict]) -> str:
@@ -145,13 +200,36 @@ class UnifiedNotificationService:
         
         return "\n".join(message_parts).strip()
     
-    def _format_email_message(self, cancellations: List[Dict], news_items: List[Dict]) -> tuple:
+    def _format_new_books_message(self, new_books: List[Dict]) -> str:
+        """
+        格式化新書通知訊息
+        
+        Args:
+            new_books: 新書列表
+            
+        Returns:
+            str: 格式化的新書通知訊息
+        """
+        message_parts = ["📚 新書上架通知\n"]
+        
+        for i, book in enumerate(new_books, 1):
+            title = book.get('title', '未知書名')
+            author = book.get('author', '未知作者')
+            
+            message_parts.append(f"{i}. {title}")
+            message_parts.append(f"   作者：{author}")
+            message_parts.append("")  # 空行
+        
+        return "\n".join(message_parts).strip()
+    
+    def _format_email_message(self, cancellations: List[Dict], news_items: List[Dict], new_books: List[Dict]) -> tuple:
         """
         格式化 Email 訊息
         
         Args:
             cancellations: 停課通知列表
             news_items: 新聞公告列表
+            new_books: 新書列表
             
         Returns:
             tuple: (subject, body)
@@ -180,9 +258,24 @@ class UnifiedNotificationService:
                 body_parts.append(f"地點：{location}")
                 body_parts.append("")
         
-        # 2. 新聞公告
-        if news_items:
+        # 2. 新書上架
+        if new_books:
             if cancellations:
+                body_parts.append("-" * 60)
+                body_parts.append("")
+            body_parts.append("【新書上架】")
+            body_parts.append("")
+            for i, book in enumerate(new_books, 1):
+                title = book.get('title', '未知書名')
+                author = book.get('author', '未知作者')
+                
+                body_parts.append(f"{i}. {title}")
+                body_parts.append(f"   作者：{author}")
+                body_parts.append("")
+        
+        # 3. 新聞公告
+        if news_items:
+            if cancellations or new_books:
                 body_parts.append("-" * 60)
                 body_parts.append("")
             body_parts.append("【新聞公告】（最新5筆）")

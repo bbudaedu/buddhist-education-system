@@ -432,16 +432,20 @@ app.listen(port, async () => {
   }
   
   // 啟動每日排程器（如果啟用）
+  // 注意：網站監控由 Python 系統 (ebook/run_daily_monitoring.py) 負責
+  // Python 系統會呼叫此 API 來推播通知給訂閱用戶
   if (schedulerConfig.enabled) {
     try {
       const scheduler = getSchedulerInstance();
       await scheduler.start();
       console.log(`📅 Daily scheduler started (${schedulerConfig.dailyExecutionTime} ${schedulerConfig.timeZone})`);
+      console.log(`📰 Website monitoring: Handled by Python system (ebook/run_daily_monitoring.py)`);
     } catch (error) {
       console.error('❌ Failed to start daily scheduler:', error instanceof Error ? error.message : 'Unknown error');
     }
   } else {
     console.log('📅 Daily scheduler is disabled');
+    console.log('📰 Website monitoring: Handled by Python system (ebook/run_daily_monitoring.py)');
   }
   
   if (serverConfig.nodeEnv === 'development') {

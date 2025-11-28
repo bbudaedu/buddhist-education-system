@@ -112,6 +112,62 @@ export class DatabaseService {
   }
 
   /**
+   * 同步法寶資料到資料庫
+   * @param books 書籍資料陣列
+   * @returns Promise<{ inserted: number, updated: number }> 同步結果
+   */
+  async syncDharmaBooks(books: any[]): Promise<{ inserted: number, updated: number }> {
+    let inserted = 0;
+    let updated = 0;
+
+    try {
+      const connection = await this.pool.getConnection();
+
+      try {
+        await connection.beginTransaction();
+
+        for (const book of books) {
+          // 檢查書籍是否存在 (根據 URL)
+          const [existing] = await connection.execute(
+            'SELECT id FROM dharma_books WHERE url = ?',
+            [book.pdfUrl || '']
+          );
+
+          if ((existing as any[]).length > 0) {
+            // 更新現有書籍
+            await connection.execute(
+              `UPDATE dharma_books 
+               SET title = ?, author = ?, cover_image_url = ?, publish_date = ?, updated_at = CURRENT_TIMESTAMP 
+               WHERE url = ?`,
+              [book.title, book.author, book.coverImageUrl, book.publishDate, book.pdfUrl]
+            );
+            updated++;
+          } else {
+            // 新增書籍
+            await connection.execute(
+              `INSERT INTO dharma_books (title, author, cover_image_url, pdf_url, url, publish_date) 
+               VALUES (?, ?, ?, ?, ?, ?)`,
+              [book.title, book.author, book.coverImageUrl, book.pdfUrl, book.pdfUrl, book.publishDate]
+            );
+            inserted++;
+          }
+        }
+
+        await connection.commit();
+        return { inserted, updated };
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
+      }
+    } catch (error) {
+      console.error('Sync dharma books error:', error);
+      throw new Error('Failed to sync dharma books');
+    }
+  }
+
+  /**
    * 執行資料庫遷移
    * @returns Promise<void>
    */
@@ -126,7 +182,7 @@ export class DatabaseService {
       // 讀取遷移檔案
       const migrationsDir = join(process.cwd(), 'migrations');
       const migrationFiles = await fs.readdir(migrationsDir);
-      
+
       // 過濾並排序 SQL 檔案
       const sqlFiles = migrationFiles
         .filter(file => file.endsWith('.sql'))
@@ -192,7 +248,7 @@ export class DatabaseService {
     const migrationsDir = join(process.cwd(), 'migrations');
     const filePath = join(migrationsDir, filename);
     const sql = await fs.readFile(filePath, 'utf-8');
-    
+
     // 移除註解並分割 SQL 語句
     const statements = sql
       .split('\n')
