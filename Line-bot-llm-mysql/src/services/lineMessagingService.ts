@@ -389,18 +389,20 @@ export class LineMessagingService {
    */
   async sendSubscriptionTypeSuccessMessage(
     replyToken: string,
-    notificationType: 'news' | 'cancellation' | 'new_books'
+    notificationType: 'news' | 'cancellation' | 'new_books' | 'videos'
   ): Promise<void> {
     const typeNames = {
       news: '最新消息',
       cancellation: '停課通知',
-      new_books: '新書通知'
+      new_books: '新書通知',
+      videos: '最新課程'
     };
 
     const typeIcons = {
       news: '📰',
       cancellation: '⚠️',
-      new_books: '📚'
+      new_books: '📚',
+      videos: '🎥'
     };
 
     const typeName = typeNames[notificationType];
@@ -449,18 +451,20 @@ export class LineMessagingService {
    */
   async sendSubscriptionTypeAlreadyActiveMessage(
     replyToken: string,
-    notificationType: 'news' | 'cancellation' | 'new_books'
+    notificationType: 'news' | 'cancellation' | 'new_books' | 'videos'
   ): Promise<void> {
     const typeNames = {
       news: '最新消息',
       cancellation: '停課通知',
-      new_books: '新書通知'
+      new_books: '新書通知',
+      videos: '影音通知'
     };
 
     const typeIcons = {
       news: '📰',
       cancellation: '⚠️',
-      new_books: '📚'
+      new_books: '📚',
+      videos: '🎥'
     };
 
     const typeName = typeNames[notificationType];
@@ -509,18 +513,20 @@ export class LineMessagingService {
    */
   async sendUnsubscriptionTypeSuccessMessage(
     replyToken: string,
-    notificationType: 'news' | 'cancellation' | 'new_books'
+    notificationType: 'news' | 'cancellation' | 'new_books' | 'videos'
   ): Promise<void> {
     const typeNames = {
       news: '最新消息',
       cancellation: '停課通知',
-      new_books: '新書通知'
+      new_books: '新書通知',
+      videos: '影音通知'
     };
 
     const typeIcons = {
       news: '📰',
       cancellation: '⚠️',
-      new_books: '📚'
+      new_books: '📚',
+      videos: '🎥'
     };
 
     const typeName = typeNames[notificationType];
@@ -569,18 +575,20 @@ export class LineMessagingService {
    */
   async sendNotSubscribedToTypeMessage(
     replyToken: string,
-    notificationType: 'news' | 'cancellation' | 'new_books'
+    notificationType: 'news' | 'cancellation' | 'new_books' | 'videos'
   ): Promise<void> {
     const typeNames = {
       news: '最新消息',
       cancellation: '停課通知',
-      new_books: '新書通知'
+      new_books: '新書通知',
+      videos: '影音通知'
     };
 
     const typeIcons = {
       news: '📰',
       cancellation: '⚠️',
-      new_books: '📚'
+      new_books: '📚',
+      videos: '🎥'
     };
 
     const typeName = typeNames[notificationType];

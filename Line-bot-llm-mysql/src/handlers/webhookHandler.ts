@@ -7,6 +7,7 @@ import { subscriptionService } from '../services/subscriptionService';
 import { bulletinService } from '../services/bulletinService';
 import { adminService } from '../services/adminService';
 import { flexMessageService } from '../services/flexMessageService';
+import { dharmaMediaHandler } from './dharmaMediaHandler';
 import { ErrorHandler, ErrorContext } from './errorHandler';
 
 /**
@@ -152,6 +153,19 @@ export class WebhookHandler {
       // 檢查是否為「最新消息」指令
       if (userMessage.trim() === '最新消息') {
         await this.handleBulletinsCommand(replyToken);
+        return;
+      }
+
+      // 檢查是否為「最新法寶」指令
+      const normalizedMessage = userMessage.trim();
+      if (normalizedMessage === '最新法寶' || normalizedMessage === '最新書籍') {
+        await dharmaMediaHandler.handleLatestBooksCommand(replyToken);
+        return;
+      }
+
+      // 檢查是否為「最新影音」指令
+      if (normalizedMessage === '最新影音') {
+        await dharmaMediaHandler.handleLatestVideosCommand(replyToken);
         return;
       }
 
