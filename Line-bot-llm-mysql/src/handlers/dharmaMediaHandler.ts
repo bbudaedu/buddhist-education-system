@@ -42,6 +42,14 @@ export class DharmaMediaHandler {
             type: 'action',
             action: {
               type: 'message',
+              label: '✅ 全部訂閱',
+              text: '全部訂閱'
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'message',
               label: '📊 訂閱狀態查詢',
               text: '訂閱狀態查詢'
             }
@@ -103,6 +111,14 @@ export class DharmaMediaHandler {
               type: 'message',
               label: '🎥 訂閱影音通知',
               text: '訂閱影音通知'
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '✅ 全部訂閱',
+              text: '全部訂閱'
             }
           },
           {
