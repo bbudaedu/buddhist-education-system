@@ -1,0 +1,38 @@
+{
+    "name": "buddhist-education-e2e-tests",
+    "version": "1.0.0",
+    "description": "E2E automated testing suite for Buddhist Education System",
+    "scripts": {
+        "test": "playwright test",
+        "test:headed": "playwright test --headed",
+        "test:debug": "playwright test --debug",
+        "test:ui": "playwright test --ui",
+        "test:chrome": "playwright test --project=chromium",
+        "test:report": "playwright show-report",
+        "test:codegen": "playwright codegen",
+        "report:generate": "node scripts/generate-test-report.js",
+        "report:diff": "node scripts/generate-code-diff.js",
+        "notify:bugs": "node scripts/notify-bugs.js",
+        "install:browsers": "playwright install chromium"
+    },
+    "keywords": [
+        "e2e",
+        "testing",
+        "playwright",
+        "qa",
+        "automation"
+    ],
+    "author": "QA Automation Team",
+    "license": "MIT",
+    "devDependencies": {
+        "@playwright/test": "^1.40.0",
+        "@types/node": "^20.0.0",
+        "typescript": "^5.0.0"
+    },
+    "dependencies": {
+        "axios": "^1.6.0",
+        "dotenv": "^16.0.0",
+        "simple-git": "^3.20.0",
+        "nodemailer": "^6.9.0"
+    }
+}

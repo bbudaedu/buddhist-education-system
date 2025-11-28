@@ -1,0 +1,276 @@
+<testsuites id="" name="" tests="67" failures="2" skipped="0" errors="0" time="13.907884">
+<testsuite name="dharma-books.spec.ts" timestamp="2025-11-26T09:26:21.389Z" hostname="chromium" tests="14" failures="0" skipped="0" time="0.054" errors="0">
+<testcase name="最新法寶 Command - Basic Functionality › FR-001: 應該成功獲取並顯示 5 本書籍" classname="dharma-books.spec.ts" time="0.014">
+</testcase>
+<testcase name="最新法寶 Command - Basic Functionality › FR-001: 書籍資料結構應包含所有必要欄位" classname="dharma-books.spec.ts" time="0.005">
+</testcase>
+<testcase name="最新法寶 Command - Basic Functionality › FR-002: 應該正確處理書籍封面圖 URL" classname="dharma-books.spec.ts" time="0.004">
+</testcase>
+<testcase name="最新法寶 Command - Basic Functionality › FR-003: PDF URL 應包含 openExternalBrowser 參數" classname="dharma-books.spec.ts" time="0.008">
+</testcase>
+<testcase name="最新法寶 Command - Flex Message Validation › 應該生成正確的 Flex Message Carousel 結構" classname="dharma-books.spec.ts" time="0.002">
+</testcase>
+<testcase name="最新法寶 Command - Flex Message Validation › Flex Message 應包含 Quick Reply" classname="dharma-books.spec.ts" time="0.002">
+</testcase>
+<testcase name="最新法寶 Command - Edge Cases › 應該處理無書籍資料的情況" classname="dharma-books.spec.ts" time="0.001">
+</testcase>
+<testcase name="最新法寶 Command - Edge Cases › 應該處理少於 5 本書籍的情況" classname="dharma-books.spec.ts" time="0.002">
+</testcase>
+<testcase name="最新法寶 Command - Edge Cases › 應該處理資料庫錯誤" classname="dharma-books.spec.ts" time="0.001">
+</testcase>
+<testcase name="最新法寶 Command - Edge Cases › 應該驗證日期格式" classname="dharma-books.spec.ts" time="0.002">
+</testcase>
+<testcase name="最新法寶 Command - URL Validation › 所有 URL 應該是有效的 HTTP/HTTPS 連結" classname="dharma-books.spec.ts" time="0.005">
+</testcase>
+<testcase name="最新法寶 Command - URL Validation › PDF URL 應該指向 .pdf 檔案" classname="dharma-books.spec.ts" time="0.002">
+</testcase>
+<testcase name="最新法寶 Command - URL Validation › 封面圖 URL 應該指向圖片檔案" classname="dharma-books.spec.ts" time="0.002">
+</testcase>
+<testcase name="最新法寶 Command - Integration Test › 完整流程：指令 → 服務 → 回應" classname="dharma-books.spec.ts" time="0.004">
+</testcase>
+</testsuite>
+<testsuite name="dharma-videos.spec.ts" timestamp="2025-11-26T09:26:21.389Z" hostname="chromium" tests="20" failures="1" skipped="0" time="0.107" errors="0">
+<testcase name="最新影音 Command - Basic Functionality › FR-004: 應該成功獲取 10 筆影音資料 (5 直播 + 5 影音)" classname="dharma-videos.spec.ts" time="0.006">
+</testcase>
+<testcase name="最新影音 Command - Basic Functionality › FR-004: 影音資料結構應包含所有必要欄位" classname="dharma-videos.spec.ts" time="0.005">
+</testcase>
+<testcase name="最新影音 Command - Basic Functionality › FR-004: 應該正確區分直播和影音類型" classname="dharma-videos.spec.ts" time="0.007">
+</testcase>
+<testcase name="最新影音 Command - Basic Functionality › FR-005: 應該處理講師照片 URL" classname="dharma-videos.spec.ts" time="0.007">
+</testcase>
+<testcase name="最新影音 Command - Basic Functionality › FR-005: 圖片顯示優先順序：講師照片 &gt; 縮圖 &gt; 預設圖示" classname="dharma-videos.spec.ts" time="0.009">
+</testcase>
+<testcase name="最新影音 Command - Flex Message Validation › 應該生成正確的 Flex Message Carousel 結構" classname="dharma-videos.spec.ts" time="0.015">
+</testcase>
+<testcase name="最新影音 Command - Flex Message Validation › FR-006: Quick Reply 應包含「訂閱最新影音」選項" classname="dharma-videos.spec.ts" time="0.001">
+</testcase>
+<testcase name="最新影音 Command - Flex Message Validation › 直播和影音應顯示不同的標籤顏色" classname="dharma-videos.spec.ts" time="0.003">
+</testcase>
+<testcase name="最新影音 Command - Edge Cases › 應該處理無影音資料的情況" classname="dharma-videos.spec.ts" time="0.001">
+</testcase>
+<testcase name="最新影音 Command - Edge Cases › 應該處理少於 10 筆資料的情況" classname="dharma-videos.spec.ts" time="0.001">
+</testcase>
+<testcase name="最新影音 Command - Edge Cases › 應該處理缺少講師資訊的情況" classname="dharma-videos.spec.ts" time="0.001">
+</testcase>
+<testcase name="最新影音 Command - Edge Cases › 應該處理缺少圖片的情況" classname="dharma-videos.spec.ts" time="0.001">
+</testcase>
+<testcase name="最新影音 Command - Edge Cases › 應該處理資料庫錯誤" classname="dharma-videos.spec.ts" time="0">
+</testcase>
+<testcase name="最新影音 Command - URL Validation › 所有觀看連結應該是有效的 URL" classname="dharma-videos.spec.ts" time="0.006">
+</testcase>
+<testcase name="最新影音 Command - URL Validation › 講師照片和縮圖應該是有效的圖片 URL" classname="dharma-videos.spec.ts" time="0.01">
+</testcase>
+<testcase name="最新影音 Command - URL Validation › YouTube 連結格式應正確" classname="dharma-videos.spec.ts" time="0.005">
+</testcase>
+<testcase name="最新影音 Command - Date Handling › 直播日期應該是未來或當天" classname="dharma-videos.spec.ts" time="0.009">
+<failure message="dharma-videos.spec.ts:301:9 直播日期應該是未來或當天" type="FAILURE">
+<![CDATA[  [chromium] › dharma-videos.spec.ts:301:9 › 最新影音 Command - Date Handling › 直播日期應該是未來或當天 ───────────
+
+    Error: expect(received).toBeGreaterThanOrEqual(expected)
+
+    Expected: >= 1764086400000
+    Received:    1763913600000
+
+      310 |
+      311 |                 // Live streams should be today or future
+    > 312 |                 expect(streamDate.getTime()).toBeGreaterThanOrEqual(today.getTime());
+          |                                              ^
+      313 |             });
+      314 |     });
+      315 |
+        at forEach (D:\AIstudio\newinfo\tests\e2e\dharma-media\specs\dharma-videos.spec.ts:312:46)
+        at D:\AIstudio\newinfo\tests\e2e\dharma-media\specs\dharma-videos.spec.ts:307:14
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(received).toBeGreaterThanOrEqual(expected)
+
+    Expected: >= 1764086400000
+    Received:    1763913600000
+
+      310 |
+      311 |                 // Live streams should be today or future
+    > 312 |                 expect(streamDate.getTime()).toBeGreaterThanOrEqual(today.getTime());
+          |                                              ^
+      313 |             });
+      314 |     });
+      315 |
+        at forEach (D:\AIstudio\newinfo\tests\e2e\dharma-media\specs\dharma-videos.spec.ts:312:46)
+        at D:\AIstudio\newinfo\tests\e2e\dharma-media\specs\dharma-videos.spec.ts:307:14
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\test-results\dharma-videos-最新影音-Command---Date-Handling-直播日期應該是未來或當天-chromium-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\test-results\dharma-videos-最新影音-Command---Date-Handling-直播日期應該是未來或當天-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|dharma-videos-最新影音-Command---Date-Handling-直播日期應該是未來或當天-chromium-retry1\trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="最新影音 Command - Date Handling › 影音日期應該正確格式化" classname="dharma-videos.spec.ts" time="0.015">
+</testcase>
+<testcase name="最新影音 Command - Date Handling › 應該按日期排序（最新在前）" classname="dharma-videos.spec.ts" time="0.001">
+</testcase>
+<testcase name="最新影音 Command - Integration Test › 完整流程：指令 → 服務 → 回應" classname="dharma-videos.spec.ts" time="0.004">
+</testcase>
+</testsuite>
+<testsuite name="performance.spec.ts" timestamp="2025-11-26T09:26:21.389Z" hostname="chromium" tests="15" failures="1" skipped="0" time="1.369" errors="0">
+<testcase name="Performance Tests - Response Time › NFR: Health endpoint 應在 2 秒內回應" classname="performance.spec.ts" time="0.022">
+<system-out>
+<![CDATA[Health endpoint response time: 19ms
+]]>
+</system-out>
+</testcase>
+<testcase name="Performance Tests - Response Time › NFR: 最新法寶功能應在 3 秒內完成處理" classname="performance.spec.ts" time="0.114">
+<system-out>
+<![CDATA[Book processing time: 112ms
+]]>
+</system-out>
+</testcase>
+<testcase name="Performance Tests - Response Time › NFR: 最新影音功能應在 3 秒內完成處理" classname="performance.spec.ts" time="0.169">
+<system-out>
+<![CDATA[Video processing time: 164ms
+]]>
+</system-out>
+</testcase>
+<testcase name="Performance Tests - Cache Mechanism › 快取機制：60 秒內重複請求應使用快取" classname="performance.spec.ts" time="0.135">
+<system-out>
+<![CDATA[First request: 114ms, Cached request: 20ms
+]]>
+</system-out>
+</testcase>
+<testcase name="Performance Tests - Cache Mechanism › 快取機制：60 秒後應重新獲取資料" classname="performance.spec.ts" time="0">
+</testcase>
+<testcase name="Performance Tests - Cache Mechanism › 快取效能：快取命中率應 &gt; 80%" classname="performance.spec.ts" time="0">
+<system-out>
+<![CDATA[Cache hit rate: 90%
+]]>
+</system-out>
+</testcase>
+<testcase name="Performance Tests - Concurrent Requests › 應該能處理並發請求" classname="performance.spec.ts" time="0.016">
+<system-out>
+<![CDATA[5 concurrent requests completed in 10ms
+]]>
+</system-out>
+</testcase>
+<testcase name="Performance Tests - Concurrent Requests › 負載測試：100 次請求應保持穩定效能" classname="performance.spec.ts" time="0.841">
+<system-out>
+<![CDATA[Average response time over 100 requests: 3.91ms
+
+[[ATTACHMENT|performance-Performance-Te-2f405-equests-負載測試：100-次請求應保持穩定效能-chromium-retry1\trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="Error Handling &amp; Recovery › 應該優雅處理 API 失敗" classname="performance.spec.ts" time="0.001">
+</testcase>
+<testcase name="Error Handling &amp; Recovery › 應該提供有意義的錯誤訊息" classname="performance.spec.ts" time="0.008">
+<failure message="performance.spec.ts:157:9 應該提供有意義的錯誤訊息" type="FAILURE">
+<![CDATA[  [chromium] › performance.spec.ts:157:9 › Error Handling & Recovery › 應該提供有意義的錯誤訊息 ────────────────
+
+    Error: expect(received).toBeGreaterThan(expected)
+
+    Expected: > 10
+    Received:   10
+
+      164 |
+      165 |         Object.values(errorMessages).forEach(message => {
+    > 166 |             expect(message.length).toBeGreaterThan(10);
+          |                                    ^
+      167 |             expect(message).toBeTruthy();
+      168 |         });
+      169 |     });
+        at forEach (D:\AIstudio\newinfo\tests\e2e\dharma-media\specs\performance.spec.ts:166:36)
+        at D:\AIstudio\newinfo\tests\e2e\dharma-media\specs\performance.spec.ts:165:38
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(received).toBeGreaterThan(expected)
+
+    Expected: > 10
+    Received:   10
+
+      164 |
+      165 |         Object.values(errorMessages).forEach(message => {
+    > 166 |             expect(message.length).toBeGreaterThan(10);
+          |                                    ^
+      167 |             expect(message).toBeTruthy();
+      168 |         });
+      169 |     });
+        at forEach (D:\AIstudio\newinfo\tests\e2e\dharma-media\specs\performance.spec.ts:166:36)
+        at D:\AIstudio\newinfo\tests\e2e\dharma-media\specs\performance.spec.ts:165:38
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\test-results\performance-Error-Handling-Recovery-應該提供有意義的錯誤訊息-chromium-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\test-results\performance-Error-Handling-Recovery-應該提供有意義的錯誤訊息-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|performance-Error-Handling-Recovery-應該提供有意義的錯誤訊息-chromium-retry1\trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="Error Handling &amp; Recovery › 錯誤不應導致系統崩潰" classname="performance.spec.ts" time="0.026">
+</testcase>
+<testcase name="Error Handling &amp; Recovery › 應該記錄錯誤日誌" classname="performance.spec.ts" time="0.003">
+</testcase>
+<testcase name="Memory &amp; Resource Management › 記憶體使用應保持穩定" classname="performance.spec.ts" time="0.001">
+</testcase>
+<testcase name="Memory &amp; Resource Management › 應該正確清理資源" classname="performance.spec.ts" time="0.001">
+</testcase>
+<testcase name="Reliability &amp; Uptime › 系統應持續可用（Health Check）" classname="performance.spec.ts" time="0.032">
+<system-out>
+<![CDATA[Availability rate: 100%
+]]>
+</system-out>
+</testcase>
+</testsuite>
+<testsuite name="webhook-integration.spec.ts" timestamp="2025-11-26T09:26:21.389Z" hostname="chromium" tests="18" failures="0" skipped="0" time="0.03" errors="0">
+<testcase name="Webhook Command Routing › TASK-201: 「最新法寶」指令應觸發 dharmaMediaHandler" classname="webhook-integration.spec.ts" time="0.002">
+</testcase>
+<testcase name="Webhook Command Routing › TASK-201: 「最新影音」指令應觸發 dharmaMediaHandler" classname="webhook-integration.spec.ts" time="0.001">
+</testcase>
+<testcase name="Webhook Command Routing › 應該識別指令的變體" classname="webhook-integration.spec.ts" time="0.002">
+</testcase>
+<testcase name="Webhook Error Handling › 未知指令應返回幫助訊息" classname="webhook-integration.spec.ts" time="0.001">
+</testcase>
+<testcase name="Webhook Error Handling › 空訊息應被正確處理" classname="webhook-integration.spec.ts" time="0.001">
+</testcase>
+<testcase name="Webhook Error Handling › 超長訊息應被截斷或拒絕" classname="webhook-integration.spec.ts" time="0.001">
+</testcase>
+<testcase name="Webhook Response Validation › 回應應包含有效的 replyToken" classname="webhook-integration.spec.ts" time="0.001">
+</testcase>
+<testcase name="Webhook Response Validation › 回應應包含正確的訊息類型" classname="webhook-integration.spec.ts" time="0.001">
+</testcase>
+<testcase name="Webhook Response Validation › 回應應在合理時間內返回" classname="webhook-integration.spec.ts" time="0.008">
+</testcase>
+<testcase name="Webhook Security › 應驗證 LINE signature" classname="webhook-integration.spec.ts" time="0.002">
+</testcase>
+<testcase name="Webhook Security › 應該拒絕無效的請求格式" classname="webhook-integration.spec.ts" time="0.002">
+</testcase>
+<testcase name="Webhook Event Types › 應該處理文字訊息事件" classname="webhook-integration.spec.ts" time="0.002">
+</testcase>
+<testcase name="Webhook Event Types › 應該忽略非文字訊息" classname="webhook-integration.spec.ts" time="0.001">
+</testcase>
+<testcase name="Webhook Event Types › 應該處理 Follow 事件" classname="webhook-integration.spec.ts" time="0.001">
+</testcase>
+<testcase name="Webhook Event Types › 應該處理 Unfollow 事件" classname="webhook-integration.spec.ts" time="0.001">
+</testcase>
+<testcase name="Quick Reply Integration › TASK-203: 點擊 Quick Reply 應觸發對應指令" classname="webhook-integration.spec.ts" time="0.001">
+</testcase>
+<testcase name="Quick Reply Integration › 點擊「訂閱最新影音」應更新資料庫" classname="webhook-integration.spec.ts" time="0.001">
+</testcase>
+<testcase name="Quick Reply Integration › 點擊「訂閱狀態查詢」應返回狀態資訊" classname="webhook-integration.spec.ts" time="0.001">
+</testcase>
+</testsuite>
+</testsuites>

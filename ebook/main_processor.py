@@ -24,7 +24,9 @@ from gemini_processor import GeminiProcessor
 from document_generator import DocumentGenerator
 from email_sender import EmailSender
 from progress_manager import ProgressManager
+from progress_manager import ProgressManager
 from config_manager import ConfigManager
+from database_sync import DatabaseSyncManager
 
 
 class MainProcessor:
@@ -55,24 +57,19 @@ class MainProcessor:
         self.is_running = False
         self.processing_thread = None
         
-        # Initialize all modules
-        self.scraper = None
-        self.ai_processor = None
-        self.document_generator = None
-        self.email_sender = None
-        self.progress_manager = None
-        
-        # Processing results
-        self.processed_books = []
+        # Initialize processing statistics
         self.processing_stats = {
-            'total_books_found': 0,
             'books_processed': 0,
             'books_failed': 0,
             'pdf_extractions': 0,
             'google_searches': 0,
             'start_time': None,
-            'end_time': None
+            'end_time': None,
+            'total_books_found': 0
         }
+        
+        # Initialize processed books list
+        self.processed_books = []
         
         # Status update callback (for UI updates)
         self.status_callback = None
@@ -154,21 +151,19 @@ class MainProcessor:
             
             # Initialize ProgressManager
             self.progress_manager = ProgressManager(
-                project_name="newbook_summary_email",
-                cache_dir=self.config.get('download_dir', '.'),
+                project_name="newbook_summary",
+                cache_dir=".",
                 logger=self.logger
             )
             self.logger.info("✓ ProgressManager initialized")
             
-            # Initialize ConfigManager
-            self.config_manager = ConfigManager(logger=self.logger)
-            self.logger.info("✓ ConfigManager initialized")
+            # Initialize processed books list
+            self.processed_books = []
             
             self.logger.info("All modules initialized successfully")
             
         except Exception as e:
-            self.logger.error(f"Failed to initialize modules: {e}")
-            self.logger.debug("Module initialization error details:", exc_info=True)
+            self.logger.error(f"Module initialization failed: {e}")
             raise
     
     def _cleanup_modules(self):
@@ -281,19 +276,7 @@ class MainProcessor:
             if self.should_stop():
                 return self._handle_interruption()
             
-            # Step 6: Generate notification data (always generate, regardless of document/email status)
-            self._update_status("生成通知資料...")
-            try:
-                notification_success = self._generate_notification_data()
-                if notification_success:
-                    self.logger.info("通知資料生成成功")
-                else:
-                    self.logger.error("通知資料生成失敗")
-            except Exception as notification_error:
-                self.logger.error(f"通知資料生成發生錯誤: {notification_error}")
-                self.logger.debug("通知資料生成詳細錯誤:", exc_info=True)
-            
-            # Step 7: Send email - only if documents were generated successfully
+            # Step 6: Send email with documents if available
             if document_paths:
                 self._update_status("發送郵件...")
                 try:
@@ -309,7 +292,7 @@ class MainProcessor:
                 self.logger.warning("跳過郵件發送 (文件生成失敗)")
                 self._update_status("跳過郵件發送 (文件生成失敗)")
             
-            # Step 8: Mark completion and cleanup
+            # Step 7: Mark completion and cleanup
             self._update_status("處理完成，清理資源...")
             self._mark_completion()
             
@@ -1273,19 +1256,17 @@ class MainProcessor:
             else:
                 self.logger.warning(f"處理執行緒等待超時 ({timeout} 秒)")
                 return False
-                
         except Exception as e:
             self.logger.error(f"等待處理執行緒時發生錯誤: {e}")
             return False
 
 
-# Example usage and testing functions
-def create_test_config() -> Dict[str, Any]:
+def create_test_config():
     """
-    Create a test configuration for MainProcessor
+    Create a test configuration for testing purposes
     
     Returns:
-        Dict: Test configuration with all required settings
+        dict: Test configuration dictionary
     """
     return {
         'gemini_api_key': 'test-api-key',
