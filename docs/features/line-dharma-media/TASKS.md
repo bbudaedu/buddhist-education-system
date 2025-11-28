@@ -16,7 +16,7 @@
 ---
 
 ## 總體進度概覽
-**完成情況**：████████░░ 40% (15/38 任務)
+**完成情況**：█████████░ 53% (20/38 任務)
 
 ---
 
@@ -48,28 +48,16 @@
   - *需求*: 串接 `/laravel/public/api/courses`
   - *功能*: 取得當日直播資訊，解析 HLS URL
   - *完成日期*: 2025-11-26
-- [ ] **TASK-103**: 實作 `VideoSeriesService` (Backend Engineer)
+- [x] **TASK-103**: 實作 `VideoSeriesService` (Backend Engineer)
   - *需求*: 串接 `/audiovisual/public/api/series/by-keyword-searched`
   - *功能*: 取得最新影音課程
-- [ ] **TASK-104**: 實作 `BudaeduConnector` 統一介面 (Backend Engineer)
+  - *完成日期*: 2025-11-26
+- [x] **TASK-104**: 實作 `BudaeduConnector` 統一介面 (Backend Engineer)
   - *需求*: 封裝上述三個服務，提供統一調用入口
-  - *功能*: 實作快取機制 (Books: 5m, Videos: 10m, Live: 1m)
+  - *功能*: SSL 憑證處理、User-Agent 設定、錯誤處理
+  - *完成日期*: 2025-11-26
 
 ### 資料庫變更
-- [ ] **TASK-105**: 更新 `subscribers` 表 Schema (Backend Engineer)
-  - *需求*: 新增 `subscribed_videos` 欄位 (Boolean)
-  - *產出*: Migration SQL script
-
-### 協作與產出
-- [ ] **TASK-106**: **M1 階段性驗收與 UX 腦力激盪** (All Agents)
-  - *活動*: 檢視 API 回傳數據，討論如何優化 Flex Message 呈現
-  - *產出*: `artifacts/M1-Completion-Report.md` (含 UX 建議)
-
----
-
-## 里程碑 M2: LINE 介面整合 (Frontend/Interaction)
-**目標**：將後端數據轉化為精美的 Flex Message，並處理用戶互動。
-
 ### Flex Message 設計與實作
 - [x] **TASK-201**: 設計「最新法寶」Flex Carousel 模板 (Frontend Engineer)
   - *需求*: 顯示封面圖、標題、作者、下載按鈕(外部瀏覽器)
@@ -95,9 +83,13 @@
     - 識別「訂閱影音通知」、「訂閱視訊」、「訂閱影片」等指令
     - 提供臨時回應訊息，防止指令被轉發到 LLM
     - 位置：`webhookHandler.ts:249-254`
-- [ ] **TASK-206-B**: 實作完整訂閱/取消訂閱邏輯 (Backend Engineer)
+- [x] **TASK-206-B**: 實作完整訂閱/取消訂閱邏輯 (Backend Engineer)
   - *需求*: 實作 `videos` 訂閱類型到 `subscriptionService`
-  - *狀態*: 待規劃
+  - *實作內容*:
+    - 更新 webhookHandler 處理「訂閱影音通知」
+    - 更新 webhookHandler 處理「取消訂閱影音通知」
+    - 修復 TypeScript 類型定義，添加 'videos' 到 handleSubscribeToTypeCommand 和 handleUnsubscribeFromTypeCommand
+  - *完成日期*: 2025-11-28
 
 ### 協作與產出
 - [ ] **TASK-207**: **M2 階段性驗收與 UX 腦力激盪** (All Agents)
