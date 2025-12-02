@@ -609,6 +609,7 @@ export class FlexMessageService {
     thumbnailUrl?: string | undefined;
     eventUrl?: string | undefined;
     isLive: boolean;
+    latestEpisodeUrl?: string | undefined;  // NEW: 最新一集連結
   }>): FlexMessage {
     const bubbles: FlexBubble[] = streams.map(stream => {
       const bubble: FlexBubble = {
@@ -715,32 +716,72 @@ export class FlexMessageService {
 
       // Add footer only if eventUrl exists
       if (stream.eventUrl) {
-        bubble.footer = {
-          type: 'box',
-          layout: 'vertical',
-          spacing: 'sm',
-          contents: [
-            {
+        const footerButtons: any[] = [];
+
+        if (stream.isLive) {
+          // 直播：觀看直播 + 詳細資訊
+          footerButtons.push({
+            type: 'button',
+            style: 'primary',
+            action: {
+              type: 'uri',
+              label: '🎥 觀看直播',
+              uri: stream.eventUrl
+            }
+          });
+          footerButtons.push({
+            type: 'button',
+            style: 'link',
+            action: {
+              type: 'uri',
+              label: 'ℹ️ 詳細資訊',
+              uri: 'https://www.budaedu.org/#/series/live-streaming?openExternalBrowser=1'
+            },
+            height: 'sm'
+          });
+        } else {
+          // 影片系列：簡介 + 最新一集 + 詳細資訊
+          footerButtons.push({
+            type: 'button',
+            style: 'primary',
+            action: {
+              type: 'uri',
+              label: '📖 簡介',  // 改名
+              uri: stream.eventUrl  // 簡介頁連結
+            }
+          });
+
+          // 最新一集按鈕（如果有 URL）
+          if (stream.latestEpisodeUrl) {
+            footerButtons.push({
               type: 'button',
               style: 'primary',
               action: {
                 type: 'uri',
-                label: stream.isLive ? '🎥 觀看直播' : '📺 觀看影片',
-                uri: stream.eventUrl
+                label: '▶️ 最新一集',
+                uri: `${stream.latestEpisodeUrl}?openExternalBrowser=1`
               }
+            });
+          }
+
+          // 詳細資訊按鈕
+          footerButtons.push({
+            type: 'button',
+            style: 'link',
+            action: {
+              type: 'uri',
+              label: 'ℹ️ 詳細資訊',
+              uri: 'https://www.budaedu.org/#/series/ongoing?openExternalBrowser=1'
             },
-            // Add "詳細資訊" button for live streams
-            ...(stream.isLive ? [{
-              type: 'button' as const,
-              style: 'link' as const,
-              action: {
-                type: 'uri' as const,
-                label: 'ℹ️ 詳細資訊',
-                uri: 'https://www.budaedu.org/#/series/live-streaming?openExternalBrowser=1'
-              },
-              height: 'sm' as const
-            }] : [])
-          ]
+            height: 'sm'
+          });
+        }
+
+        bubble.footer = {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: footerButtons
         };
       }
 

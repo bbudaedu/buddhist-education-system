@@ -2,6 +2,7 @@ import * as line from '@line/bot-sdk';
 import { lineMessagingService } from '../services/lineMessagingService';
 import { dharmaBookService } from '../services/dharmaBookService';
 import { videoStreamingService } from '../services/videoStreamingService';
+import { videoSeriesService } from '../services/videoSeriesService';  // NEW
 import { flexMessageService } from '../services/flexMessageService';
 
 /**
@@ -92,14 +93,29 @@ export class DharmaMediaHandler {
         return;
       }
 
+      // 為每個影片系列並行獲取最新一集連結
+      const streamsWithLatestEpisode = await Promise.all(
+        streams.map(async (stream) => {
+          if (!stream.isLive && stream.seriesId) {
+            const latestEpisodeUrl = await videoSeriesService.getLatestEpisode(stream.seriesId);
+            return {
+              ...stream,
+              latestEpisodeUrl
+            };
+          }
+          return stream;
+        })
+      );
+
       // 生成 Flex Message Carousel
-      const flexMessage = flexMessageService.createVideoStreamingCarousel(streams.map(stream => ({
+      const flexMessage = flexMessageService.createVideoStreamingCarousel(streamsWithLatestEpisode.map(stream => ({
         title: stream.title,
         instructor: stream.instructor,
         startDate: stream.startTime,
         thumbnailUrl: stream.thumbnailUrl,
         eventUrl: stream.link,
-        isLive: stream.isLive
+        isLive: stream.isLive,
+        latestEpisodeUrl: stream.latestEpisodeUrl  // NEW: 傳遞最新一集連結
       })));
 
       // 生成 Quick Reply
