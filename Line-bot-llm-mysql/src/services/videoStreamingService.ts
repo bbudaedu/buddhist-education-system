@@ -85,25 +85,54 @@ export class VideoStreamingService {
 
             const courses = response.data || [];
 
-            // 過濾：只保留尚未結束的直播
+            // 獲取今天的日期（僅日期部分）
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            // 過濾：1) 尚未結束的直播 2) 已經開始的課程（開課日 <= 今天）
             const currentTimeInMinutes = now.getHours() * 60 + now.getMinutes();
             const ongoingCourses = courses.filter((c: any) => {
+                // Check 1: 必須有結束時間且尚未結束
                 if (!c.spk_end_time) return false;
                 const [endHour, endMinute] = c.spk_end_time.split(':').map(Number);
                 const endTimeInMinutes = endHour * 60 + endMinute;
-                return endTimeInMinutes > currentTimeInMinutes;
+                if (endTimeInMinutes <= currentTimeInMinutes) return false;
+
+                // Check 2: 開課日期必須 <= 今天（排除尚未開始的課程）
+                if (c.spkdate) {
+                    const courseStartDate = new Date(c.spkdate);
+                    courseStartDate.setHours(0, 0, 0, 0);
+                    if (courseStartDate > today) {
+                        console.log(`[FILTER] Excluding "${c.title_name}" - Not started yet (${c.spkdate})`);
+                        return false;
+                    }
+                }
+
+                return true;
             });
 
             console.log(`Found ${courses.length} total courses for ${weekdayName}, ${ongoingCourses.length} still ongoing`);
 
             return ongoingCourses.map((c: any) => {
                 // 尋找直播連結
-                let liveUrl = '';
-                if (c.schedules && c.schedules.length > 0) {
+                // Priority 1: Check  course.live_stream_url (top-level field)
+                let liveUrl = c.live_stream_url || '';
+
+                // Priority 2: Check course.places[].live_url (direct array)
+                if (!liveUrl && c.places && c.places.length > 0) {
+                    const place = c.places.find((p: any) => p.live_url);
+                    if (place) liveUrl = place.live_url || '';
+                }
+
+                // Priority 3: Fallback - check schedules.places
+                if (!liveUrl && c.schedules && c.schedules.length > 0) {
                     for (const schedule of c.schedules) {
                         if (schedule.places) {
-                            const place = schedule.places.find((p: any) => p.live_stream_url);
-                            if (place) liveUrl = place.live_stream_url;
+                            const place = schedule.places.find((p: any) => p.live_stream_url || p.live_url);
+                            if (place) {
+                                liveUrl = place.live_url || place.live_stream_url || '';
+                                break;
+                            }
                         }
                     }
                 }

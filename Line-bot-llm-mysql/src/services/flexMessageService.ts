@@ -466,7 +466,7 @@ export class FlexMessageService {
                   action: {
                     type: 'uri',
                     label: '查看詳情',
-                    uri: 'https://www.budaedu.org/#/books/applicable/chinese?openExternalBrowser=1'
+                    uri: `https://www.budaedu.org/#/books/${book.id}?openExternalBrowser=1`
                   },
                   style: 'primary',
                   height: 'sm',
@@ -477,7 +477,7 @@ export class FlexMessageService {
                   action: {
                     type: 'uri',
                     label: '書籍申請',
-                    uri: 'https://www.budaedu.org/#/books/applicable/chinese?openExternalBrowser=1'
+                    uri: `https://www.budaedu.org/#/books/${book.id}?openExternalBrowser=1`
                   },
                   style: 'primary',
                   height: 'sm',
@@ -511,6 +511,21 @@ export class FlexMessageService {
               },
               style: 'link',
               height: 'sm'
+            },
+            // Fourth row: Share button
+            {
+              type: 'button',
+              action: {
+                type: 'uri',
+                label: '📤 分享給朋友',
+                uri: (() => {
+                  const shareText = `📚 ${book.title}\n作者：${book.author || '佛陀教育基金會'}\n\n查看詳情：https://www.budaedu.org/#/books/${book.id}`;
+                  return `https://line.me/R/share?text=${encodeURIComponent(shareText)}`;
+                })()
+              },
+              style: 'link',
+              height: 'sm',
+              color: '#17c950'
             }
           ]
         }
@@ -703,6 +718,7 @@ export class FlexMessageService {
         bubble.footer = {
           type: 'box',
           layout: 'vertical',
+          spacing: 'sm',
           contents: [
             {
               type: 'button',
@@ -712,7 +728,18 @@ export class FlexMessageService {
                 label: stream.isLive ? '🎥 觀看直播' : '📺 觀看影片',
                 uri: stream.eventUrl
               }
-            }
+            },
+            // Add "詳細資訊" button for live streams
+            ...(stream.isLive ? [{
+              type: 'button' as const,
+              style: 'link' as const,
+              action: {
+                type: 'uri' as const,
+                label: 'ℹ️ 詳細資訊',
+                uri: 'https://www.budaedu.org/#/series/live-streaming?openExternalBrowser=1'
+              },
+              height: 'sm' as const
+            }] : [])
           ]
         };
       }
