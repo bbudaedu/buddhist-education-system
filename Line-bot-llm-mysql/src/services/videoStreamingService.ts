@@ -79,8 +79,7 @@ export class VideoStreamingService {
                     'filter[continued]': 'true',
                     'include': 'places,lecturer',
                     'order': 'spk_start_time,asc|spk_end_time,asc'
-                },
-                timeout: 5000
+                }
             });
 
             const courses = response.data || [];

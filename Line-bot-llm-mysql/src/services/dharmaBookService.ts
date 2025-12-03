@@ -73,8 +73,7 @@ export class DharmaBookService {
                     params: {
                         include: 'attached',
                         order: 'name,asc'
-                    },
-                    timeout: 5000 // 5秒超時
+                    }
                 }
             );
 

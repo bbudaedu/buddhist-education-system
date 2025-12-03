@@ -45,3 +45,40 @@
 3. 📝 建立專門的 QA Testing Workflow（建議）
 
 ---
+
+## ADR-005: API 超時問題修正 (2025-12-03)
+
+### 背景
+影片系列 `T085E` 和 `T080Q` 在獲取最新集數時持續出現 `timeout of 5000ms exceeded` 錯誤。
+
+### 問題分析
+1. **API 端點驗證**: 使用 MCP `read_url_content` 工具直接訪問 API，確認端點可正常訪問，數據結構完整。
+2. **超時設定衝突**:
+   - `budaeduConnector` 預設超時: 10000ms
+   - 各服務覆蓋設定: 5000ms
+   - 網絡延遲導致 5 秒不足
+
+### 決策
+**統一移除所有服務層的硬編碼超時設定**，使用 `budaeduConnector` 預設的 10 秒超時。
+
+### 影響範圍
+修改 4 個方法的超時配置：
+- `videoSeriesService.ts`: `getLatestSeries()`, `getLatestEpisode()`
+- `videoStreamingService.ts`: `getTodayLiveStreams()`
+- `dharmaBookService.ts`: `getDownloadInfo()`
+
+### 理由
+1. **簡化配置**: 統一在 connector 層管理超時設定
+2. **提升成功率**: 10 秒超時更適合網絡不穩定的情況
+3. **易於維護**: 單一配置點，避免分散管理
+
+### 預期效果
+- ✅ 解決 T085E/T080Q 超時問題
+- ✅ 提升所有 API 請求成功率
+- ✅ 統一超時行為
+
+### 驗證
+- ✅ TypeScript 編譯通過
+- ⏳ 待用戶測試確認
+
+---

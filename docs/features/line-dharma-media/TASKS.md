@@ -3,7 +3,7 @@
 **Feature Owner**：Product Team  
 **PRD版本**：v1.7 (2025-11-25)  
 **狀態**：🟢 On Track  
-**最後更新**：2025-11-28  
+**最後更新**：2025-12-03  
 
 ---
 
@@ -16,7 +16,7 @@
 ---
 
 ## 總體進度概覽
-**完成情況**：█████████░ 53% (20/38 任務)
+**完成情況**：██████████ 60% (28/46 任務)
 
 ---
 
@@ -135,3 +135,61 @@
 ### 協作與產出
 - [ ] **TASK-406**: **專案結案會議** (All Agents)
   - *產出*: `artifacts/Project-Closure-Report.md`
+
+---
+
+## 里程碑 M4+: 後續優化與修正 (Post-Launch Optimization)
+**目標**：基於用戶回饋和測試結果，持續優化功能體驗。
+
+### UX 優化與功能增強
+- [x] **TASK-501**: 書籍分享功能 (Frontend Engineer)
+  - *需求*: 添加「📤 分享給朋友」按鈕，使用 LINE 分享 API
+  - *完成日期*: 2025-12-02
+  - *位置*: `flexMessageService.ts`
+
+- [x] **TASK-502**: 直播 URL 修正 (Backend Engineer)
+  - *問題*: 直播按鈕使用 fallback URL 而非實際 `live_stream_url`
+  - *完成日期*: 2025-12-02
+  - *位置*: `videoStreamingService.ts:118-143`
+
+- [x] **TASK-503**: 直播日期過濾 (Backend Engineer)
+  - *需求*: 排除開課日期 > 今天的課程
+  - *完成日期*: 2025-12-02
+  - *位置*: `videoStreamingService.ts:88-110`
+
+- [x] **TASK-504**: 影片系列按鈕優化 (Backend + Frontend)
+  - *需求*: 添加「📖 簡介」、「▶️ 最新一集」、「ℹ️ 詳細資訊」三個按鈕
+  - *完成日期*: 2025-12-02
+  - *涉及檔案*:
+    - `video.ts`: 擴展介面添加 `seriesId`, `latestEpisodeUrl`
+    - `videoSeriesService.ts`: 實作 `getLatestEpisode()` 方法
+    - `dharmaMediaHandler.ts`: 並行獲取最新集數
+    - `flexMessageService.ts`: 按鈕邏輯調整
+
+- [x] **TASK-505**: API 欄位名稱修正 (Backend Engineer)
+  - *問題*: `getLatestEpisode` 使用錯誤的欄位名稱
+  - *修正*: 使用正確的 `VL_streaming_url` 和 `AL_streaming_url`
+  - *完成日期*: 2025-12-02
+
+### 性能與穩定性
+- [x] **TASK-506**: API 超時問題分析 (Backend Engineer)
+  - *問題*: T085E 和 T080Q 系列出現 `timeout of 5000ms exceeded`
+  - *分析工具*: 使用 MCP `read_url_content` 驗證 API 可訪問性
+  - *完成日期*: 2025-12-03
+
+- [x] **TASK-507**: 統一超時設定 (Backend Engineer)
+  - *修正*: 移除所有服務層硬編碼的 `timeout: 5000`
+  - *影響範圍*: 4 個方法（videoSeriesService x2, videoStreamingService, dharmaBookService）
+  - *完成日期*: 2025-12-03
+
+- [x] **TASK-508**: 更新技術文檔 (All)
+  - *完成日期*: 2025-12-03
+  - *產出*: 
+    - `walkthrough.md`: 完整修改記錄
+    - `project_context.md`: 更新專案狀態
+    - `decisions_log.md`: ADR-005 超時問題決策
+
+### 待測試
+- [ ] **TASK-509**: 用戶測試 - 影片系列最新集數功能 (QA Engineer)
+  - *重點*: 驗證 T085E/T080Q 超時問題是否解決
+  - *測試內容*: 最新一集按鈕功能、簡介按鈕、詳細資訊按鈕

@@ -20,8 +20,7 @@ export class VideoSeriesService {
                     'filter[IsDirtyEntry]': 'N',
                     'order': 'latest_filedate,desc',
                     'per_page': limit
-                },
-                timeout: 5000
+                }
             });
 
             const series = response.data || [];
@@ -31,7 +30,7 @@ export class VideoSeriesService {
                 instructor: s.lecr_name || '佛陀教育基金會',
                 startTime: s.latest_filedate,
                 link: `https://www.budaedu.org/#/series/${s.title_no}`,
-                seriesId: s.title_no,  // 保存課程編號以便獲取最新集數
+                seriesId: s.title_no,
                 isLive: false,
                 type: 'video',
                 thumbnailUrl: 'https://www.budaedu.org/img/logo.png'
@@ -44,6 +43,7 @@ export class VideoSeriesService {
 
     /**
      * 獲取指定系列的最新一集播放連結
+     * 優先級：視頻 MP4 > 音頻 MP3 > FTP 視頻 > FTP 音頻
      * @param seriesId 課程編號 (如 T096M)
      * @returns 最新一集的播放連結，失敗返回 undefined
      */
@@ -53,37 +53,50 @@ export class VideoSeriesService {
         try {
             const response = await budaeduConnector.get<any>(EPISODES_API, {
                 params: {
-                    order: 'AV_fileorder,desc',  // 降序取得最新一集
+                    order: 'AV_fileorder,desc',
                     per_page: 1
-                },
-                timeout: 5000
+                }
             });
 
             const episodes = response.data || [];
+
             if (episodes.length > 0) {
                 const latestEpisode = episodes[0];
-                // 嘗試多個可能的欄位名稱
-                const playUrl = latestEpisode.video_url ||
-                    latestEpisode.play_url ||
-                    latestEpisode.url ||
-                    latestEpisode.file_url;
+                let playUrl: string | undefined;
+                let mediaType = '';
+
+                // 使用實際的 API 欄位：VL_streaming_url (視頻) 和 AL_streaming_url (音頻)
+                if (latestEpisode.VL_streaming_url) {
+                    playUrl = latestEpisode.VL_streaming_url;
+                    mediaType = '視頻MP4';
+                } else if (latestEpisode.AL_streaming_url) {
+                    playUrl = latestEpisode.AL_streaming_url;
+                    mediaType = '音頻MP3';
+                } else if (latestEpisode.VL_ftp_url) {
+                    playUrl = latestEpisode.VL_ftp_url;
+                    mediaType = 'FTP視頻';
+                } else if (latestEpisode.AL_ftp_url) {
+                    playUrl = latestEpisode.AL_ftp_url;
+                    mediaType = 'FTP音頻';
+                }
 
                 if (playUrl) {
-                    console.log(`[VideoSeries] Latest episode for ${seriesId}: ${playUrl}`);
+                    console.log(`[VideoSeries] ✓ ${seriesId} - 找到${mediaType}: 第${latestEpisode.AV_fileorder || '?'}集`);
                     return playUrl;
                 }
 
-                // 如果找不到播放連結，嘗試構建官網播放頁面連結
-                if (latestEpisode.id || latestEpisode.AV_id) {
-                    const episodeId = latestEpisode.id || latestEpisode.AV_id;
-                    return `https://www.budaedu.org/#/series/${seriesId}/episode/${episodeId}`;
+                // 降級：使用官網播放頁面連結
+                if (latestEpisode.AV_fileindex) {
+                    const constructedUrl = `https://www.budaedu.org/#/series/${seriesId}/episode/${latestEpisode.AV_fileindex}`;
+                    console.log(`[VideoSeries] ✓ ${seriesId} - 使用官網頁面`);
+                    return constructedUrl;
                 }
             }
 
-            console.log(`[VideoSeries] No latest episode found for ${seriesId}`);
+            console.log(`[VideoSeries] ✗ ${seriesId} - 無可用集數`);
             return undefined;
         } catch (error) {
-            console.error(`[VideoSeries] Failed to fetch latest episode for ${seriesId}:`, error);
+            console.error(`[VideoSeries] ✗ ${seriesId} - API失敗:`, error);
             return undefined;
         }
     }
