@@ -125,7 +125,7 @@ export class DharmaMediaHandler {
             type: 'action',
             action: {
               type: 'message',
-              label: '🎥 訂閱影音通知',
+              label: '🎥 訂閱課程通知',
               text: '訂閱影音通知'
             }
           },

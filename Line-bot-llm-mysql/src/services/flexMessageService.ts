@@ -625,7 +625,7 @@ export class FlexMessageService {
                 ? `https://via.placeholder.com/300x200?text=${encodeURIComponent(stream.instructor || 'Instructor')}`
                 : 'https://via.placeholder.com/300x200?text=Video',
               size: 'full',
-              aspectRatio: '3:2',
+              aspectRatio: '20:13',
               aspectMode: 'cover'
             },
             {
@@ -674,14 +674,14 @@ export class FlexMessageService {
                     {
                       type: 'text' as const,
                       text: '講師:',
-                      size: 'sm' as const,
+                      size: 'md' as const,
                       color: '#aaaaaa',
                       flex: 0
                     },
                     {
                       type: 'text' as const,
                       text: stream.instructor,
-                      size: 'sm' as const,
+                      size: 'md' as const,
                       color: '#666666',
                       wrap: true,
                       flex: 1
@@ -695,14 +695,14 @@ export class FlexMessageService {
                     {
                       type: 'text' as const,
                       text: '時間:',
-                      size: 'sm' as const,
+                      size: 'md' as const,
                       color: '#aaaaaa',
                       flex: 0
                     },
                     {
                       type: 'text' as const,
                       text: stream.startDate,
-                      size: 'sm' as const,
+                      size: 'md' as const,
                       color: '#666666',
                       flex: 1
                     }
@@ -776,6 +776,33 @@ export class FlexMessageService {
             height: 'sm'
           });
         }
+
+        // 添加分享按鈕（適用於直播和影片系列）
+        let shareText = '';
+        if (stream.isLive) {
+          shareText = `🎥 ${stream.title}\n${stream.instructor ? `講師：${stream.instructor}\n` : ''}${stream.startDate ? `時間：${stream.startDate}\n` : ''}${stream.eventUrl || ''}`;
+        } else {
+          // 影片系列：包含簡介和最新一集
+          shareText = `📹 ${stream.title}\n${stream.instructor ? `講師：${stream.instructor}\n` : ''}`;
+          if (stream.eventUrl) {
+            shareText += `\n📖 簡介：${stream.eventUrl}`;
+          }
+          if (stream.latestEpisodeUrl) {
+            shareText += `\n▶️ 最新一集：${stream.latestEpisodeUrl}`;
+          }
+        }
+
+        footerButtons.push({
+          type: 'button',
+          style: 'link',
+          action: {
+            type: 'uri',
+            label: '📤 分享',
+            uri: `https://line.me/R/share?text=${encodeURIComponent(shareText)}`
+          },
+          height: 'sm'
+        });
+
 
         bubble.footer = {
           type: 'box',
