@@ -353,6 +353,275 @@ export class FlexMessageService {
     };
   }
   /**
+   * 創建單個書籍 Bubble
+   */
+  createBookBubble(book: {
+    id?: string;
+    code?: string;
+    title: string;
+    author?: string;
+    description?: string;
+    publishDate?: string | undefined;
+    coverImageUrl?: string | undefined;
+    pdfUrl?: string | undefined;
+    fileSize?: string | undefined;
+  }): FlexBubble {
+    const bubble: FlexBubble = {
+      type: 'bubble',
+      size: 'kilo',
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          // Top section: horizontal layout with image and basic info
+          {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              // Left: Small cover image
+              {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                  {
+                    type: 'image',
+                    url: book.coverImageUrl || 'https://www.budaedu.org/img/logo.png',
+                    size: 'sm',
+                    aspectRatio: '3:4',
+                    aspectMode: 'cover',
+                    backgroundColor: '#f0f0f0'
+                  }
+                ],
+                flex: 0,
+                width: '80px'
+              },
+              // Right: Book basic info (title, author, code)
+              {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                  {
+                    type: 'text',
+                    text: book.title,
+                    weight: 'bold',
+                    size: 'xl',
+                    wrap: true,
+                    maxLines: 2,
+                    color: '#333333'
+                  },
+                  ...(book.code ? [{
+                    type: 'text' as const,
+                    text: `編號: ${book.code}`,
+                    size: 'md' as const,
+                    color: '#666666',
+                    margin: 'sm' as const
+                  }] : []),
+                  {
+                    type: 'text',
+                    text: book.author || '佛陀教育基金會',
+                    size: 'md',
+                    color: '#666666',
+                    margin: 'xs'
+                  }
+                ],
+                flex: 1,
+                margin: 'md'
+              }
+            ]
+          },
+          // Bottom section: full-width description
+          ...(book.description ? [{
+            type: 'box' as const,
+            layout: 'vertical' as const,
+            contents: [
+              {
+                type: 'text' as const,
+                text: book.description,
+                size: 'md' as const,
+                color: '#999999',
+                wrap: true,
+                maxLines: 5
+              }
+            ],
+            margin: 'md' as const
+          }] : [])
+        ]
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: [
+          // First row: horizontal 2 buttons
+          {
+            type: 'box',
+            layout: 'horizontal',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'button',
+                action: {
+                  type: 'uri',
+                  label: '查看詳情',
+                  uri: `https://www.budaedu.org/#/books/${book.id}?openExternalBrowser=1`
+                },
+                style: 'primary',
+                height: 'sm',
+                flex: 1
+              },
+              {
+                type: 'button',
+                action: {
+                  type: 'uri',
+                  label: '書籍申請',
+                  uri: `https://www.budaedu.org/#/books/${book.id}?openExternalBrowser=1`
+                },
+                style: 'primary',
+                height: 'sm',
+                flex: 1
+              }
+            ]
+          },
+          // Second row: PDF button (if exists)
+          ...(book.pdfUrl ? [{
+            type: 'button' as const,
+            action: {
+              type: 'uri' as const,
+              label: book.fileSize ? `📖 閱讀 PDF (${book.fileSize})` : '📖 閱讀 PDF',
+              uri: (() => {
+                const encodedUrl = encodeURI(book.pdfUrl!);
+                return encodedUrl.includes('openExternalBrowser=1')
+                  ? encodedUrl
+                  : `${encodedUrl}${encodedUrl.includes('?') ? '&' : '?'}openExternalBrowser=1`;
+              })()
+            },
+            style: 'link' as const,
+            height: 'sm' as const
+          }] : []),
+          // Third row: More button
+          {
+            type: 'button',
+            action: {
+              type: 'uri',
+              label: '更多法寶',
+              uri: 'https://www.budaedu.org/#/books/applicable/chinese?openExternalBrowser=1'
+            },
+            style: 'link',
+            height: 'sm'
+          },
+          // Fourth row: Share button
+          {
+            type: 'button',
+            action: {
+              type: 'uri',
+              label: '📤 分享給朋友',
+              uri: (() => {
+                const shareText = `📚 ${book.title}\n作者：${book.author || '佛陀教育基金會'}\n\n查看詳情：https://www.budaedu.org/#/books/${book.id}`;
+                return `https://line.me/R/share?text=${encodeURIComponent(shareText)}`;
+              })()
+            },
+            style: 'link',
+            height: 'sm',
+            color: '#17c950'
+          }
+        ]
+      }
+    };
+    return bubble;
+  }
+
+  /**
+   * 創建佛卡 Bubble
+   */
+  createBuddhaCardBubble(card: {
+    id: string;
+    code: string;
+    title: string;
+    imageUrl: string;
+    updatedAt: string;
+  }): FlexBubble {
+    return {
+      type: 'bubble',
+      size: 'kilo',
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'image',
+            url: card.imageUrl,
+            size: 'full',
+            aspectRatio: '1:1',
+            aspectMode: 'cover',
+            action: {
+              type: 'uri',
+              label: '查看圖片',
+              uri: card.imageUrl
+            }
+          },
+          {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'text',
+                text: card.title,
+                weight: 'bold',
+                size: 'xl',
+                wrap: true
+              },
+              {
+                type: 'text',
+                text: card.code,
+                size: 'sm',
+                color: '#666666',
+                margin: 'sm'
+              }
+            ],
+            paddingAll: 'lg'
+          }
+        ],
+        paddingAll: '0px'
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: [
+          {
+            type: 'button',
+            style: 'primary',
+            action: {
+              type: 'uri',
+              label: '下載圖片',
+              uri: card.imageUrl
+            }
+          },
+          {
+            type: 'button',
+            action: {
+              type: 'uri',
+              label: '更多佛卡',
+              uri: 'https://www.budaedu.org/#/pictures/applicable?openExternalBrowser=1'
+            },
+            style: 'link',
+            height: 'sm'
+          },
+          {
+            type: 'button',
+            style: 'link',
+            action: {
+              type: 'uri',
+              label: '📤 分享給朋友',
+              uri: `https://line.me/R/share?text=${encodeURIComponent(`🙏 ${card.title}\n${card.imageUrl}`)}`
+            }
+          }
+        ]
+      }
+    };
+  }
+
+  /**
    * 創建法寶圖書 Flex Carousel
    * @param books 法寶圖書列表
    * @returns FlexMessage
@@ -368,170 +637,7 @@ export class FlexMessageService {
     pdfUrl?: string | undefined;
     fileSize?: string | undefined;
   }>): FlexMessage {
-    const bubbles: FlexBubble[] = books.map(book => {
-      const bubble: FlexBubble = {
-        type: 'bubble',
-        size: 'kilo',
-        body: {
-          type: 'box',
-          layout: 'vertical',
-          contents: [
-            // Top section: horizontal layout with image and basic info
-            {
-              type: 'box',
-              layout: 'horizontal',
-              contents: [
-                // Left: Small cover image
-                {
-                  type: 'box',
-                  layout: 'vertical',
-                  contents: [
-                    {
-                      type: 'image',
-                      url: book.coverImageUrl || 'https://www.budaedu.org/img/logo.png',
-                      size: 'sm',
-                      aspectRatio: '3:4',
-                      aspectMode: 'cover',
-                      backgroundColor: '#f0f0f0'
-                    }
-                  ],
-                  flex: 0,
-                  width: '80px'
-                },
-                // Right: Book basic info (title, author, code)
-                {
-                  type: 'box',
-                  layout: 'vertical',
-                  contents: [
-                    {
-                      type: 'text',
-                      text: book.title,
-                      weight: 'bold',
-                      size: 'xl',
-                      wrap: true,
-                      maxLines: 2,
-                      color: '#333333'
-                    },
-                    ...(book.code ? [{
-                      type: 'text' as const,
-                      text: `編號: ${book.code}`,
-                      size: 'md' as const,
-                      color: '#666666',
-                      margin: 'sm' as const
-                    }] : []),
-                    {
-                      type: 'text',
-                      text: book.author || '佛陀教育基金會',
-                      size: 'md',
-                      color: '#666666',
-                      margin: 'xs'
-                    }
-                  ],
-                  flex: 1,
-                  margin: 'md'
-                }
-              ]
-            },
-            // Bottom section: full-width description
-            ...(book.description ? [{
-              type: 'box' as const,
-              layout: 'vertical' as const,
-              contents: [
-                {
-                  type: 'text' as const,
-                  text: book.description,
-                  size: 'md' as const,
-                  color: '#999999',
-                  wrap: true,
-                  maxLines: 5
-                }
-              ],
-              margin: 'md' as const
-            }] : [])
-          ]
-        },
-        footer: {
-          type: 'box',
-          layout: 'vertical',
-          spacing: 'sm',
-          contents: [
-            // First row: horizontal 2 buttons
-            {
-              type: 'box',
-              layout: 'horizontal',
-              spacing: 'sm',
-              contents: [
-                {
-                  type: 'button',
-                  action: {
-                    type: 'uri',
-                    label: '查看詳情',
-                    uri: `https://www.budaedu.org/#/books/${book.id}?openExternalBrowser=1`
-                  },
-                  style: 'primary',
-                  height: 'sm',
-                  flex: 1
-                },
-                {
-                  type: 'button',
-                  action: {
-                    type: 'uri',
-                    label: '書籍申請',
-                    uri: `https://www.budaedu.org/#/books/${book.id}?openExternalBrowser=1`
-                  },
-                  style: 'primary',
-                  height: 'sm',
-                  flex: 1
-                }
-              ]
-            },
-            // Second row: PDF button (if exists)
-            ...(book.pdfUrl ? [{
-              type: 'button' as const,
-              action: {
-                type: 'uri' as const,
-                label: book.fileSize ? `📖 閱讀 PDF (${book.fileSize})` : '📖 閱讀 PDF',
-                uri: (() => {
-                  const encodedUrl = encodeURI(book.pdfUrl);
-                  return encodedUrl.includes('openExternalBrowser=1')
-                    ? encodedUrl
-                    : `${encodedUrl}${encodedUrl.includes('?') ? '&' : '?'}openExternalBrowser=1`;
-                })()
-              },
-              style: 'link' as const,
-              height: 'sm' as const
-            }] : []),
-            // Third row: More button
-            {
-              type: 'button',
-              action: {
-                type: 'uri',
-                label: '更多法寶',
-                uri: 'https://www.budaedu.org/#/books/applicable/chinese?openExternalBrowser=1'
-              },
-              style: 'link',
-              height: 'sm'
-            },
-            // Fourth row: Share button
-            {
-              type: 'button',
-              action: {
-                type: 'uri',
-                label: '📤 分享給朋友',
-                uri: (() => {
-                  const shareText = `📚 ${book.title}\n作者：${book.author || '佛陀教育基金會'}\n\n查看詳情：https://www.budaedu.org/#/books/${book.id}`;
-                  return `https://line.me/R/share?text=${encodeURIComponent(shareText)}`;
-                })()
-              },
-              style: 'link',
-              height: 'sm',
-              color: '#17c950'
-            }
-          ]
-        }
-      };
-      return bubble;
-    });
+    const bubbles: FlexBubble[] = books.map(book => this.createBookBubble(book));
 
     // Add "View All" bubble at the end
     const viewAllBubble: FlexBubble = {

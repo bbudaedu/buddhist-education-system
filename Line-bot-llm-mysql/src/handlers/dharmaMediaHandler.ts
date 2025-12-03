@@ -2,8 +2,9 @@ import * as line from '@line/bot-sdk';
 import { lineMessagingService } from '../services/lineMessagingService';
 import { dharmaBookService } from '../services/dharmaBookService';
 import { videoStreamingService } from '../services/videoStreamingService';
-import { videoSeriesService } from '../services/videoSeriesService';  // NEW
+import { videoSeriesService } from '../services/videoSeriesService';
 import { flexMessageService } from '../services/flexMessageService';
+import { buddhaCardService } from '../services/buddhaCardService';
 
 /**
  * Dharma Media Command Handlers
@@ -16,17 +17,37 @@ export class DharmaMediaHandler {
    */
   async handleLatestBooksCommand(replyToken: string): Promise<void> {
     try {
-      console.log('Fetching latest dharma books...');
+      console.log('Fetching latest dharma books and buddha cards...');
 
-      const books = await dharmaBookService.getLatestBooks(5);
+      // 並行獲取書籍和佛卡
+      const [books, cards] = await Promise.all([
+        dharmaBookService.getLatestBooks(5),
+        buddhaCardService.getLatestBuddhaCards(5)
+      ]);
 
-      if (!books || books.length === 0) {
+      if ((!books || books.length === 0) && (!cards || cards.length === 0)) {
         await lineMessagingService.sendTextMessage(replyToken, '目前沒有最新法寶資訊');
         return;
       }
 
+      // 生成書籍 Bubbles
+      const bookBubbles = (books || []).map(book => flexMessageService.createBookBubble(book));
+
+      // 生成佛卡 Bubbles
+      const cardBubbles = (cards || []).map(card => flexMessageService.createBuddhaCardBubble(card));
+
+      // 合併 Bubbles (書籍在前，佛卡在後)
+      const bubbles = [...bookBubbles, ...cardBubbles];
+
       // 生成 Flex Message Carousel
-      const flexMessage = flexMessageService.createDharmaBookCarousel(books);
+      const flexMessage: line.FlexMessage = {
+        type: 'flex',
+        altText: '最新法寶通知',
+        contents: {
+          type: 'carousel',
+          contents: bubbles
+        }
+      };
 
       // 生成 Quick Reply
       const quickReply: line.QuickReply = {
@@ -71,7 +92,7 @@ export class DharmaMediaHandler {
         quickReply
       }]);
 
-      console.log(`Successfully sent ${books.length} dharma books`);
+      console.log(`Successfully sent ${books.length} books and ${cards.length} cards`);
     } catch (error) {
       console.error('Error handling latest books command:', error);
       await lineMessagingService.sendErrorMessage(replyToken, '無法取得最新法寶資訊，請稍後再試');
