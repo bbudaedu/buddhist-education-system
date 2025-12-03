@@ -86,7 +86,7 @@ export class DharmaMediaHandler {
     try {
       console.log('Fetching latest videos and live streams...');
 
-      const streams = await videoStreamingService.getLatestContent(10);
+      const streams = await videoStreamingService.getLatestContent(5);
 
       if (!streams || streams.length === 0) {
         await lineMessagingService.sendTextMessage(replyToken, '目前沒有最新影音資訊');
@@ -115,7 +115,8 @@ export class DharmaMediaHandler {
         thumbnailUrl: stream.thumbnailUrl,
         eventUrl: stream.link,
         isLive: stream.isLive,
-        latestEpisodeUrl: stream.latestEpisodeUrl  // NEW: 傳遞最新一集連結
+        latestEpisodeUrl: stream.latestEpisodeUrl,  // NEW: 傳遞最新一集連結
+        intro: stream.intro  // NEW: 傳遞課程介紹
       })));
 
       // 生成 Quick Reply

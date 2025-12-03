@@ -33,7 +33,8 @@ export class VideoSeriesService {
                 seriesId: s.title_no,
                 isLive: false,
                 type: 'video',
-                thumbnailUrl: 'https://www.budaedu.org/img/logo.png'
+                thumbnailUrl: 'https://www.budaedu.org/img/logo.png',
+                intro: s.title_abstract || `${s.lecr_name || '法師'}講授${s.title_name || '佛法課程'}` // 添加简单介绍
             } as VideoContent));
         } catch (error) {
             console.error('Fetch video series failed:', error);
@@ -55,7 +56,8 @@ export class VideoSeriesService {
                 params: {
                     order: 'AV_fileorder,desc',
                     per_page: 1
-                }
+                },
+                timeout: 20000 // 增加超時時間到 20 秒
             });
 
             const episodes = response.data || [];

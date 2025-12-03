@@ -58,6 +58,46 @@ export class VideoStreamingService {
     }
 
     /**
+     * 从课程详情 API 获取介绍
+     * @param courseId 课程 ID
+     * @returns Promise<string | undefined> 清理后的介绍文字
+     */
+    private async getCourseIntro(courseId: string): Promise<string | undefined> {
+        try {
+            const response = await budaeduConnector.get<any>(this.LIVE_API_URL + `/${courseId}`, {
+                params: {
+                    'fields[courses]': 'intro'
+                }
+            });
+
+            const course = response.data;
+            if (!course || !course.intro) return undefined;
+
+            // 清理 HTML 标签并限制长度
+            const rawIntro = course.intro;
+            const cleanIntro = rawIntro
+                .replace(/<[^>]*>/g, '')  // 移除所有 HTML 标签
+                .replace(/&nbsp;/g, ' ')  // 替换 HTML 实体
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&amp;/g, '&')
+                .replace(/mso-[^;]+;/g, '')  // 移除 MS Office 样式
+                .replace(/\\u[0-9a-fA-F]{4}/g, (match: string) => String.fromCharCode(parseInt(match.substr(2), 16)))  // 解码 Unicode
+                .replace(/\s+/g, ' ')  // 合并多余空白
+                .trim();
+
+            // 限制长度为 200 字符
+            return cleanIntro.length > 200
+                ? cleanIntro.substring(0, 200) + '...'
+                : cleanIntro || undefined;
+
+        } catch (error) {
+            console.error(`Failed to fetch intro for course ${courseId}:`, error);
+            return undefined;
+        }
+    }
+
+    /**
      * 抓取直播活動 (使用 Laravel API)
      */
     private async fetchLiveEvents(): Promise<VideoContent[]> {
@@ -112,52 +152,61 @@ export class VideoStreamingService {
 
             console.log(`Found ${courses.length} total courses for ${weekdayName}, ${ongoingCourses.length} still ongoing`);
 
-            return ongoingCourses.map((c: any) => {
-                // 尋找直播連結
-                // Priority 1: Check  course.live_stream_url (top-level field)
-                let liveUrl = c.live_stream_url || '';
+            // 並行獲取所有課程的 intro
+            const coursesWithIntro = await Promise.all(
+                ongoingCourses.map(async (c: any) => {
+                    // 尋找直播連結
+                    // Priority 1: Check  course.live_stream_url (top-level field)
+                    let liveUrl = c.live_stream_url || '';
 
-                // Priority 2: Check course.places[].live_url (direct array)
-                if (!liveUrl && c.places && c.places.length > 0) {
-                    const place = c.places.find((p: any) => p.live_url);
-                    if (place) liveUrl = place.live_url || '';
-                }
+                    // Priority 2: Check course.places[].live_url (direct array)
+                    if (!liveUrl && c.places && c.places.length > 0) {
+                        const place = c.places.find((p: any) => p.live_url);
+                        if (place) liveUrl = place.live_url || '';
+                    }
 
-                // Priority 3: Fallback - check schedules.places
-                if (!liveUrl && c.schedules && c.schedules.length > 0) {
-                    for (const schedule of c.schedules) {
-                        if (schedule.places) {
-                            const place = schedule.places.find((p: any) => p.live_stream_url || p.live_url);
-                            if (place) {
-                                liveUrl = place.live_url || place.live_stream_url || '';
-                                break;
+                    // Priority 3: Fallback - check schedules.places
+                    if (!liveUrl && c.schedules && c.schedules.length > 0) {
+                        for (const schedule of c.schedules) {
+                            if (schedule.places) {
+                                const place = schedule.places.find((p: any) => p.live_stream_url || p.live_url);
+                                if (place) {
+                                    liveUrl = place.live_url || place.live_stream_url || '';
+                                    break;
+                                }
                             }
                         }
                     }
-                }
 
-                // 格式化時間顯示：星期四 14:30 ~ 16:30
-                const timeDisplay = `${weekdayName} ${c.spk_start_time} ~ ${c.spk_end_time}`;
+                    // 格式化時間顯示：星期四 14:30 ~ 16:30
+                    const timeDisplay = `${weekdayName} ${c.spk_start_time} ~ ${c.spk_end_time}`;
 
-                // 講師名稱（包含稱謂）
-                const instructorName = c.lecturer?.lecr_full_name ||
-                    (c.lecturer?.lecr_name && c.lecturer?.lecr_title
-                        ? `${c.lecturer.lecr_name}${c.lecturer.lecr_title}`
-                        : '') ||
-                    c.leader ||
-                    '佛陀教育基金會';
+                    // 講師名稱（包含稱謂）
+                    const instructorName = c.lecturer?.lecr_full_name ||
+                        (c.lecturer?.lecr_name && c.lecturer?.lecr_title
+                            ? `${c.lecturer.lecr_name}${c.lecturer.lecr_title}`
+                            : '') ||
+                        c.leader ||
+                        '佛陀教育基金會';
 
-                return {
-                    id: `live_${c.id}`,
-                    title: c.title_name || c.name || '直播課程',
-                    instructor: instructorName,
-                    startTime: timeDisplay,
-                    link: liveUrl || 'https://www.budaedu.org/#/series/live-streaming',
-                    isLive: true,
-                    type: 'live',
-                    thumbnailUrl: 'https://www.budaedu.org/img/logo.png'
-                } as VideoContent;
-            });
+                    // 使用新的 API 获取课程介绍
+                    const intro = await this.getCourseIntro(c.id);
+
+                    return {
+                        id: `live_${c.id}`,
+                        title: c.title_name || c.name || '直播課程',
+                        instructor: instructorName,
+                        startTime: timeDisplay,
+                        link: liveUrl || 'https://www.budaedu.org/#/series/live-streaming',
+                        isLive: true,
+                        type: 'live',
+                        thumbnailUrl: 'https://www.budaedu.org/img/logo.png',
+                        intro  // 使用新 API 获取的 intro
+                    } as VideoContent;
+                })
+            );
+
+            return coursesWithIntro;
         } catch (error) {
             console.error('Fetch live events failed:', error);
             return [];

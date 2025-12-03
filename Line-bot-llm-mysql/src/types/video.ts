@@ -12,4 +12,5 @@ export interface VideoContent {
     type: 'live' | 'video';
     seriesId?: string;           // 課程編號 (如 T096M)，用於獲取最新集數
     latestEpisodeUrl?: string;   // 最新一集的播放連結
+    intro?: string;              // 課程介紹
 }

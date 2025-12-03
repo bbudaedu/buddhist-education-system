@@ -610,6 +610,7 @@ export class FlexMessageService {
     eventUrl?: string | undefined;
     isLive: boolean;
     latestEpisodeUrl?: string | undefined;  // NEW: 最新一集連結
+    intro?: string | undefined;  // NEW: 課程介紹
   }>): FlexMessage {
     const bubbles: FlexBubble[] = streams.map(stream => {
       const bubble: FlexBubble = {
@@ -625,7 +626,7 @@ export class FlexMessageService {
                 ? `https://via.placeholder.com/300x200?text=${encodeURIComponent(stream.instructor || 'Instructor')}`
                 : 'https://via.placeholder.com/300x200?text=Video',
               size: 'full',
-              aspectRatio: '20:13',
+              aspectRatio: '2:1',
               aspectMode: 'cover'
             },
             {
@@ -709,7 +710,23 @@ export class FlexMessageService {
                   ]
                 }] : [])
               ]
-            }
+            },
+            // 添加课程介绍显示区域
+            ...(stream.intro ? [{
+              type: 'box' as const,
+              layout: 'vertical' as const,
+              contents: [
+                {
+                  type: 'text' as const,
+                  text: stream.intro,
+                  size: 'md' as const,
+                  color: '#999999',
+                  wrap: true,
+                  maxLines: 4
+                }
+              ],
+              margin: 'md' as const
+            }] : [])
           ]
         }
       };
