@@ -47,9 +47,10 @@ class UnifiedNotificationService:
             cancellations = all_content.get('cancellation', [])
             news_items = all_content.get('news', [])[:5]  # 只取最新 5 筆
             new_books = all_content.get('new_books', [])  # 新書通知
+            new_videos = all_content.get('new_videos', [])[:5]  # 最新影音
             
             # 如果沒有任何內容，不發送通知
-            if not cancellations and not news_items and not new_books:
+            if not cancellations and not news_items and not new_books and not new_videos:
                 self.logger.info("沒有新內容，跳過通知")
                 return True
             
@@ -57,11 +58,13 @@ class UnifiedNotificationService:
             line_success = True
             if self.line_service and self.line_service.is_enabled():
                 line_success = self._send_integrated_line_notification(
-                    cancellations, news_items, new_books
+                    cancellations, news_items, new_books, new_videos
                 )
             
-            # 格式化 Email 訊息（Email 仍然統一發送）
-            email_subject, email_body = self._format_email_message(cancellations, news_items, new_books)
+            # 格式化 Email 訊息（HTML 格式，包含影音）
+            email_subject, email_body, is_html = self._format_email_message(
+                cancellations, news_items, new_books, new_videos
+            )
             
             # 發送 Email 通知
             email_success = True
@@ -69,7 +72,7 @@ class UnifiedNotificationService:
                 email_success = self.email_sender.send_notification_email(
                     subject=email_subject,
                     body=email_body,
-                    is_html=False
+                    is_html=is_html
                 )
                 if email_success:
                     self.logger.info("Email 統一通知發送成功")
@@ -84,7 +87,8 @@ class UnifiedNotificationService:
     
     def _send_integrated_line_notification(self, cancellations: List[Dict], 
                                           news_items: List[Dict], 
-                                          new_books: List[Dict]) -> bool:
+                                          new_books: List[Dict],
+                                          new_videos: List[Dict] = None) -> bool:
         """
         發送整合的 LINE 通知（使用 Flex Message）
         
@@ -92,6 +96,7 @@ class UnifiedNotificationService:
             cancellations: 停課通知列表
             news_items: 新聞公告列表
             new_books: 新書列表
+            new_videos: 影音列表
             
         Returns:
             bool: True if successful
@@ -100,13 +105,15 @@ class UnifiedNotificationService:
             # 準備結構化資料
             structured_data = {}
             
-            # 轉換新書資料
+            # 轉換新書資料（包含佛卡）
             if new_books:
                 structured_data['newBooks'] = [
                     {
                         'title': book.get('title', '未知書名'),
-                        'author': book.get('author', '未知作者'),
-                        'pdfUrls': book.get('pdf_urls', [])  # 支援多個 PDF
+                        'author': book.get('author', ''),
+                        'url': book.get('url', ''),  # 加入官網連結
+                        'coverUrl': book.get('coverUrl', book.get('imageUrl', '')),
+                        'source': book.get('source', 'books')  # books 或 buddha_cards
                     }
                     for book in new_books
                 ]
@@ -116,23 +123,37 @@ class UnifiedNotificationService:
                 structured_data['news'] = [
                     {
                         'title': item.get('title', '未知標題'),
-                        'date': item.get('publication_date', item.get('date', '未知日期')),
+                        'date': item.get('publishDate', item.get('publication_date', item.get('date', ''))),
                         'url': item.get('url', ''),
-                        'content': item.get('content', '')
+                        'content': item.get('content', '')[:100] if item.get('content') else ''
                     }
                     for item in news_items
                 ]
             
-            # 轉換停課資料
+            # 轉換停課資料 - 使用正確的 API 欄位名稱
             if cancellations:
                 structured_data['cancellations'] = [
                     {
-                        'courseName': item.get('course_name', '未知課程'),
-                        'date': item.get('cancellation_date', '未知日期'),
-                        'instructor': item.get('instructor_name', '未知講師'),
-                        'location': item.get('location', '')
+                        'courseName': item.get('courseName', item.get('course_name', '未知課程')),
+                        'cancelDate': item.get('cancelDate', item.get('cancellation_date', '未知日期')),
+                        'instructor': item.get('instructor', item.get('instructor_name', '')),
+                        'time': item.get('time', ''),
+                        'url': item.get('url', 'https://www.budaedu.org/#/bulletins/course-cancel')
                     }
                     for item in cancellations
+                ]
+            
+            # 轉換影音資料
+            if new_videos:
+                structured_data['videos'] = [
+                    {
+                        'id': item.get('id', ''),
+                        'title': item.get('title', '未知標題'),
+                        'instructor': item.get('instructor', ''),
+                        'episodeCount': item.get('episodeCount', item.get('episode_count', 0)),
+                        'url': item.get('url', '')
+                    }
+                    for item in new_videos
                 ]
             
             # 發送整合通知
@@ -222,88 +243,110 @@ class UnifiedNotificationService:
         
         return "\n".join(message_parts).strip()
     
-    def _format_email_message(self, cancellations: List[Dict], news_items: List[Dict], new_books: List[Dict]) -> tuple:
+    def _format_email_message(self, cancellations: List[Dict], news_items: List[Dict], 
+                              new_books: List[Dict], new_videos: List[Dict] = None) -> tuple:
         """
-        格式化 Email 訊息
+        格式化 Email 訊息 (HTML 格式)
         
         Args:
             cancellations: 停課通知列表
             news_items: 新聞公告列表
             new_books: 新書列表
+            new_videos: 影音列表
             
         Returns:
-            tuple: (subject, body)
+            tuple: (subject, body, is_html)
         """
         subject = f"【最新訊息】佛教教育網站更新通知 - {datetime.now().strftime('%Y-%m-%d')}"
         
-        body_parts = [
-            "佛教教育網站最新訊息",
-            "=" * 60,
-            ""
+        html_parts = [
+            "<html><body>",
+            "<h2 style='color:#2c3e50;'>佛教教育網站最新訊息</h2>",
+            "<hr style='border:1px solid #bdc3c7;'>"
         ]
         
         # 1. 停課通知
         if cancellations:
-            body_parts.append("【停課通知】")
-            body_parts.append("")
+            html_parts.append("<h3 style='color:#e74c3c;'>🚫 停課通知</h3>")
+            html_parts.append("<ul>")
             for item in cancellations:
-                course_name = item.get('course_name', '未知課程')
-                date = item.get('cancellation_date', '未知日期')
-                instructor = item.get('instructor_name', '未知講師')
-                location = item.get('location', '未知地點')
+                course_name = item.get('courseName', item.get('course_name', '未知課程'))
+                date = item.get('cancelDate', item.get('cancellation_date', '未知日期'))
+                if date and len(date) > 10:
+                    date = date[:10]
+                instructor = item.get('instructor', item.get('instructor_name', '未知講師'))
+                time_slot = item.get('time', '')
+                url = item.get('url', 'https://www.budaedu.org/#/bulletins/course-cancel')
                 
-                body_parts.append(f"課程：{course_name}")
-                body_parts.append(f"日期：{date}")
-                body_parts.append(f"講師：{instructor}")
-                body_parts.append(f"地點：{location}")
-                body_parts.append("")
+                html_parts.append(f"<li><strong>{course_name}</strong><br/>")
+                html_parts.append(f"日期：{date} | 講師：{instructor}")
+                if time_slot:
+                    html_parts.append(f" | 時間：{time_slot}")
+                html_parts.append(f" <a href='{url}'>更多資訊</a></li>")
+            html_parts.append("</ul>")
         
         # 2. 新書上架
         if new_books:
-            if cancellations:
-                body_parts.append("-" * 60)
-                body_parts.append("")
-            body_parts.append("【新書上架】")
-            body_parts.append("")
-            for i, book in enumerate(new_books, 1):
+            html_parts.append("<h3 style='color:#27ae60;'>📚 新書上架</h3>")
+            html_parts.append("<ul>")
+            for book in new_books:
                 title = book.get('title', '未知書名')
-                author = book.get('author', '未知作者')
+                author = book.get('author', '')
+                url = book.get('url', '')
                 
-                body_parts.append(f"{i}. {title}")
-                body_parts.append(f"   作者：{author}")
-                body_parts.append("")
+                html_parts.append(f"<li><strong>{title}</strong>")
+                if author and author != '-':
+                    html_parts.append(f"<br/>作者：{author}")
+                if url:
+                    html_parts.append(f" <a href='{url}'>更多資訊</a>")
+                html_parts.append("</li>")
+            html_parts.append("</ul>")
         
         # 3. 新聞公告
         if news_items:
-            if cancellations or new_books:
-                body_parts.append("-" * 60)
-                body_parts.append("")
-            body_parts.append("【新聞公告】（最新5筆）")
-            body_parts.append("")
-            for i, item in enumerate(news_items, 1):
+            html_parts.append("<h3 style='color:#3498db;'>📰 新聞公告</h3>")
+            html_parts.append("<ul>")
+            for item in news_items:
                 title = item.get('title', '未知標題')
-                date = item.get('publication_date', item.get('date', '未知日期'))
+                date = item.get('publication_date', item.get('date', ''))
                 url = item.get('url', '')
-                content = item.get('content', '')
                 
-                body_parts.append(f"{i}. {title}")
-                body_parts.append(f"   日期：{date}")
+                html_parts.append(f"<li><strong>{title}</strong>")
+                if date:
+                    html_parts.append(f" ({date})")
                 if url:
-                    body_parts.append(f"   連結：{url}")
-                if content:
-                    # 只顯示前100字
-                    preview = content[:100] + "..." if len(content) > 100 else content
-                    body_parts.append(f"   內容：{preview}")
-                body_parts.append("")
+                    html_parts.append(f" <a href='{url}'>更多資訊</a>")
+                html_parts.append("</li>")
+            html_parts.append("</ul>")
         
-        body_parts.extend([
-            "=" * 60,
-            f"發送時間：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-            "",
-            "此郵件由系統自動發送，請勿回覆。"
+        # 4. 最新影音
+        if new_videos:
+            html_parts.append("<h3 style='color:#9b59b6;'>🎥 最新影音</h3>")
+            html_parts.append("<ul>")
+            for video in new_videos:
+                title = video.get('title', '未知標題')
+                instructor = video.get('instructor', '')
+                episode_count = video.get('episodeCount', video.get('episode_count', 0))
+                url = video.get('url', '')
+                
+                html_parts.append(f"<li><strong>{title}</strong>")
+                if instructor:
+                    html_parts.append(f"<br/>講師：{instructor}")
+                if episode_count:
+                    html_parts.append(f" | 共 {episode_count} 集")
+                if url:
+                    html_parts.append(f" <a href='{url}'>更多資訊</a>")
+                html_parts.append("</li>")
+            html_parts.append("</ul>")
+        
+        html_parts.extend([
+            "<hr style='border:1px solid #bdc3c7;'>",
+            f"<p style='color:#7f8c8d;font-size:12px;'>發送時間：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>",
+            "此郵件由系統自動發送，請勿回覆。</p>",
+            "</body></html>"
         ])
         
-        return subject, "\n".join(body_parts)
+        return subject, "".join(html_parts), True
 
 
 # Example usage

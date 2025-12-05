@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 """
 Daily Monitoring Execution Script
-每日監控執行腳本
+每日監控執行腳本 (API 版本)
 
 This script is designed to be called by the Node.js scheduler to execute
-a complete monitoring cycle including all scrapers and processors.
+a complete monitoring cycle using the API-based monitor.
 """
 
 import os
@@ -15,8 +15,8 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
-# Import monitoring components
-from monitoring_controller import MonitoringController
+# Import new API-based monitoring components
+from api_website_monitor import APIWebsiteMonitor
 from config_manager import ConfigManager
 
 
@@ -50,94 +50,34 @@ def main():
     
     try:
         logger.info("=" * 80)
-        logger.info("Starting Daily Monitoring Execution")
+        logger.info("Starting Daily Monitoring Execution (API Version)")
         logger.info("=" * 80)
         
         start_time = datetime.now()
         
-        # Initialize configuration manager
-        config_path = "config.json"
-        if not os.path.exists(config_path):
-            logger.error(f"Configuration file not found: {config_path}")
-            return 1
+        # Initialize API-based website monitor
+        logger.info("Initializing API website monitor...")
+        monitor = APIWebsiteMonitor(logger=logger)
         
-        logger.info(f"Loading configuration from: {config_path}")
-        config_manager = ConfigManager(config_path, logger)
-        
-        # Initialize monitoring controller
-        logger.info("Initializing monitoring controller...")
-        controller = MonitoringController(config_path, logger)
-        
-        # Initialize system
-        logger.info("Initializing monitoring system...")
-        success, message = controller.initialize_system()
-        if not success:
-            logger.error(f"System initialization failed: {message}")
-            return 1
-        
-        logger.info(f"System initialization successful: {message}")
-        
-        # Execute single monitoring cycle
+        # Execute monitoring cycle with notification
         logger.info("Executing monitoring cycle...")
         logger.info("-" * 80)
         
-        # Get website monitor instance
-        website_monitor = controller.website_monitor
-        
-        # Run single monitoring cycle
-        cycle_success = website_monitor.start_monitoring_cycle()
+        result = monitor.run_monitoring_cycle(send_notification=True)
         
         logger.info("-" * 80)
         
-        # Send email notification if configured
-        try:
-            from email_sender import EmailSender
-            email_config = config_manager.get_config().get('email', {})
-            
-            if email_config.get('enabled', False):
-                logger.info("Sending email notification...")
-                email_sender = EmailSender(config_manager.get_config(), logger)
-                
-                # Get monitoring statistics
-                stats = website_monitor.monitoring_stats
-                
-                # Prepare email content
-                email_subject = f"【每日監控報告】{datetime.now().strftime('%Y-%m-%d')} 網站監控執行完成"
-                email_body = f"""
-每日網站監控執行報告
-
-執行時間：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-執行狀態：{'成功' if cycle_success else '失敗'}
-
-監控統計：
-- 完成週期數：{stats.get('cycles_completed', 0)}
-- 處理內容總數：{stats.get('total_content_processed', 0)}
-- 錯誤次數：{stats.get('errors_encountered', 0)}
-
-詳細資訊請查看系統日誌。
-
-此郵件由系統自動發送，請勿回覆。
-                """.strip()
-                
-                email_sender.send_notification_email(
-                    subject=email_subject,
-                    body=email_body,
-                    is_html=False
-                )
-                logger.info("Email notification sent successfully")
-        except Exception as email_error:
-            logger.warning(f"Failed to send email notification: {email_error}")
-            # Don't fail the whole process if email fails
+        cycle_success = result.get('success', False)
         
         if cycle_success:
             logger.info("✅ Monitoring cycle completed successfully")
             
             # Get monitoring statistics
-            stats = website_monitor.monitoring_stats
+            stats = monitor.get_stats()
             logger.info(f"Monitoring Statistics:")
             logger.info(f"  - Cycles completed: {stats.get('cycles_completed', 0)}")
-            logger.info(f"  - Total content processed: {stats.get('total_content_processed', 0)}")
-            logger.info(f"  - Errors encountered: {stats.get('errors_encountered', 0)}")
+            logger.info(f"  - Remaining pushes today: {stats.get('remaining_pushes_today', '?')}")
+            logger.info(f"  - Notification sent: {result.get('notification_sent', False)}")
             
             # Calculate execution time
             end_time = datetime.now()
@@ -150,11 +90,9 @@ def main():
                 "timestamp": datetime.now().isoformat(),
                 "execution_time_seconds": execution_time,
                 "statistics": {
-                    "cycles_completed": stats.get('cycles_completed', 0),
-                    "total_content_processed": stats.get('total_content_processed', 0),
-                    "errors_encountered": stats.get('errors_encountered', 0),
-                    "last_successful_cycle": stats.get('last_successful_cycle').isoformat() if stats.get('last_successful_cycle') else None,
-                    "average_cycle_time": stats.get('average_cycle_time', 0)
+                    "fetched": result.get('fetched', {}),
+                    "new_items": result.get('new_items', {}),
+                    "notification_sent": result.get('notification_sent', False)
                 },
                 "message": "Monitoring cycle completed successfully"
             }
@@ -177,6 +115,7 @@ def main():
             
         else:
             logger.error("❌ Monitoring cycle failed")
+            logger.error(f"Error: {result.get('error', 'Unknown error')}")
             
             # Generate error output
             end_time = datetime.now()
@@ -187,7 +126,7 @@ def main():
                 "timestamp": datetime.now().isoformat(),
                 "execution_time_seconds": execution_time,
                 "message": "Monitoring cycle failed",
-                "error": "Cycle execution returned failure status"
+                "error": result.get('error', 'Unknown error')
             }
             
             output_dir = Path("generated_documents")
@@ -227,32 +166,8 @@ def main():
         return 1
     
     finally:
-        # Cleanup
-        try:
-            if 'website_monitor' in locals() and website_monitor:
-                logger.info("Cleaning up monitoring resources...")
-                # Clean up individual scrapers and processors
-                if hasattr(website_monitor, 'scrapers'):
-                    for scraper_name, scraper in website_monitor.scrapers.items():
-                        try:
-                            if hasattr(scraper, 'cleanup'):
-                                scraper.cleanup()
-                                logger.info(f"Cleaned up {scraper_name}")
-                        except Exception as e:
-                            logger.warning(f"Error cleaning up {scraper_name}: {e}")
-                
-                if hasattr(website_monitor, 'processors'):
-                    for processor_name, processor in website_monitor.processors.items():
-                        try:
-                            if hasattr(processor, 'cleanup'):
-                                processor.cleanup()
-                                logger.info(f"Cleaned up {processor_name}")
-                        except Exception as e:
-                            logger.warning(f"Error cleaning up {processor_name}: {e}")
-                
-                logger.info("Cleanup completed")
-        except Exception as cleanup_error:
-            logger.warning(f"Cleanup error: {cleanup_error}")
+        # API monitor doesn't need explicit cleanup
+        logger.info("Monitoring execution finished")
 
 
 if __name__ == "__main__":

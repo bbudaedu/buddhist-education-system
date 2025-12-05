@@ -226,19 +226,32 @@ class LineNotificationService:
             
             # Send request to LINE bot backend
             response = requests.post(
-                f"{self.api_url}/website-monitoring",
+                self.api_url,  # api_url 已包含完整路徑
                 json=payload,
                 headers=headers,
                 timeout=30
             )
             
-            if response.status_code == 200:
+            # 解析回應結果
+            try:
                 result = response.json()
                 messages_sent = result.get('messagesSent', 0)
-                self.logger.info(f"LINE integrated notification sent successfully ({messages_sent} users)")
-                return True
-            else:
-                self.logger.error(f"LINE integrated notification failed: {response.status_code} - {response.text}")
+                
+                # 如果有任何訊息成功發送，視為成功
+                if messages_sent > 0:
+                    if result.get('error'):
+                        self.logger.warning(f"LINE 通知部分成功: 發送 {messages_sent} 則，但有錯誤: {result.get('error')}")
+                    else:
+                        self.logger.info(f"LINE integrated notification sent successfully ({messages_sent} users)")
+                    return True
+                elif response.status_code == 200:
+                    self.logger.info("LINE notification processed but no users to send")
+                    return True
+                else:
+                    self.logger.error(f"LINE integrated notification failed: {response.status_code} - {response.text}")
+                    return False
+            except Exception as e:
+                self.logger.error(f"Failed to parse LINE API response: {e}")
                 return False
                 
         except requests.exceptions.RequestException as e:
