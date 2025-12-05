@@ -2,12 +2,22 @@ import { messagingApi } from '@line/bot-sdk';
 import { config } from '../config';
 import { subscriptionService } from './subscriptionService';
 import { NotificationType } from '../types/subscription';
-import { 
-  flexMessageService, 
-  BookNotification, 
-  NewsNotification, 
-  CancellationNotification 
+import {
+  flexMessageService,
+  BookNotification,
+  NewsNotification,
+  CancellationNotification
 } from './flexMessageService';
+
+/**
+ * 影音通知介面
+ */
+export interface VideoNotification {
+  title: string;
+  instructor?: string;
+  episodeCount?: number;
+  url?: string;
+}
 
 /**
  * Website Monitoring Notification Service
@@ -20,16 +30,17 @@ export interface WebsiteMonitoringNotification {
   type: 'broadcast' | 'alert' | 'summary';
   message: string;
   timestamp: string;
-  contentType?: string; // 'news', 'cancellation', 'new_books'
+  contentType?: string; // 'news', 'cancellation', 'new_books', 'videos'
   metadata?: {
     itemCount?: number;
     priority?: 'high' | 'medium' | 'low';
   };
-  // 新增結構化資料支援
+  // 新增結構化資料支援 (包含影音)
   structuredData?: {
     newBooks?: BookNotification[];
     news?: NewsNotification[];
     cancellations?: CancellationNotification[];
+    videos?: VideoNotification[];
   };
 }
 
@@ -40,7 +51,9 @@ export const NotificationTypeMapping: Record<string, NotificationType> = {
   'news': 'news',
   'cancellation': 'cancellation',
   'carousel': 'new_books', // 輪播圖通常是新書相關
-  'media': 'news' // 媒體報導歸類為新聞
+  'media': 'news', // 媒體報導歸類為新聞
+  'videos': 'videos', // 影音通知
+  'new_videos': 'videos' // Python 端使用的 key
 };
 
 export class WebsiteMonitoringNotificationService {
@@ -70,16 +83,16 @@ export class WebsiteMonitoringNotificationService {
       }
 
       // 傳統模式：單一類型通知
-      const contentType = notification.contentType || 
-                         (notification.metadata as any)?.contentType || 
-                         'news';
+      const contentType = notification.contentType ||
+        (notification.metadata as any)?.contentType ||
+        'news';
       const notificationType = NotificationTypeMapping[contentType] || 'news';
-      
+
       console.log(`📋 Content type: ${contentType}, Notification type: ${notificationType}`);
 
       // 取得訂閱該類型通知的用戶
       const subscribedUsers = await subscriptionService.getSubscribedUsers(notificationType);
-      
+
       if (subscribedUsers.length === 0) {
         console.log(`ℹ️ No users subscribed to ${notificationType} notifications`);
         return {
@@ -109,7 +122,7 @@ export class WebsiteMonitoringNotificationService {
             ],
           });
           successCount++;
-          
+
           // 更新最後通知時間
           await subscriptionService.updateLastNotificationSent(user.lineUserId);
         } catch (error) {
@@ -161,7 +174,7 @@ export class WebsiteMonitoringNotificationService {
 
       // 取得所有訂閱用戶
       const allUsers = await subscriptionService.getSubscribedUsers();
-      
+
       if (allUsers.length === 0) {
         console.log('ℹ️ No subscribed users found');
         return {
@@ -177,12 +190,13 @@ export class WebsiteMonitoringNotificationService {
       for (const user of allUsers) {
         try {
           const userNotificationTypes = user.notificationTypes;
-          
+
           // 根據用戶訂閱類型過濾資料
           const filteredData: {
             newBooks?: BookNotification[];
             news?: NewsNotification[];
             cancellations?: CancellationNotification[];
+            videos?: VideoNotification[];
           } = {};
 
           if (userNotificationTypes.includes('new_books') && structuredData.newBooks) {
@@ -193,6 +207,9 @@ export class WebsiteMonitoringNotificationService {
           }
           if (userNotificationTypes.includes('cancellation') && structuredData.cancellations) {
             filteredData.cancellations = structuredData.cancellations;
+          }
+          if (userNotificationTypes.includes('videos') && structuredData.videos) {
+            filteredData.videos = structuredData.videos;
           }
 
           // 如果用戶沒有訂閱任何有資料的類型，跳過
@@ -214,10 +231,31 @@ export class WebsiteMonitoringNotificationService {
               message = flexMessageService.createNewsCarousel(filteredData.news);
             } else if (filteredData.cancellations) {
               message = flexMessageService.createCancellationCarousel(filteredData.cancellations);
+            } else if (filteredData.videos) {
+              // 影音使用影音 Carousel
+              const videoStreams = filteredData.videos.map(v => ({
+                title: v.title,
+                instructor: v.instructor,
+                startDate: undefined,
+                thumbnailUrl: undefined,
+                eventUrl: v.url,
+                isLive: false,
+                intro: v.episodeCount ? `共 ${v.episodeCount} 集` : undefined
+              }));
+              message = flexMessageService.createVideoStreamingCarousel(videoStreams);
             }
           } else {
-            // 多種類型：使用整合 Carousel
-            message = flexMessageService.createIntegratedNotification(filteredData);
+            // 多種類型：使用簡化通知模板（每個項目可點擊觸發查詢）
+            const books = filteredData.newBooks?.filter(b => (b as any).source !== 'buddha_cards') || [];
+            const cards = filteredData.newBooks?.filter(b => (b as any).source === 'buddha_cards') || [];
+
+            message = flexMessageService.createSimpleNotification({
+              newBooks: books.length,
+              buddhaCards: cards.length,
+              cancellations: filteredData.cancellations?.length || 0,
+              news: filteredData.news?.length || 0,
+              videos: filteredData.videos?.length || 0
+            });
           }
 
           if (!message) {
@@ -232,10 +270,10 @@ export class WebsiteMonitoringNotificationService {
           });
 
           successCount++;
-          
+
           // 更新最後通知時間
           await subscriptionService.updateLastNotificationSent(user.lineUserId);
-          
+
           console.log(`✅ Sent integrated notification to user ${user.lineUserId} (${subscribedTypesCount} types)`);
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';

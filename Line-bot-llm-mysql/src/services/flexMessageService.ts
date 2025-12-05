@@ -1,4 +1,4 @@
-import { FlexMessage, FlexBubble, FlexCarousel } from '@line/bot-sdk';
+import { FlexMessage, FlexBubble } from '@line/bot-sdk';
 
 /**
  * Flex Message Service
@@ -946,151 +946,334 @@ export class FlexMessageService {
       }
     };
   }
+
   /**
-   * 創建整合通知 Flex Message
-   * 當用戶訂閱多種類型時，整合成一則訊息
+   * 創建簡化通知 Flex Message
+   * 單一卡片，每個摘要行可點擊觸發查詢指令
    */
-  createIntegratedNotification(data: {
-    newBooks?: BookNotification[];
-    news?: NewsNotification[];
-    cancellations?: CancellationNotification[];
+  createSimpleNotification(data: {
+    newBooks?: number;      // 新書數量
+    buddhaCards?: number;   // 佛卡數量
+    cancellations?: number; // 停課數量
+    news?: number;          // 消息數量
+    videos?: number;        // 影音數量
   }): FlexMessage {
-    const bubbles: FlexBubble[] = [];
+    const contents: any[] = [];
 
-    // 1. 摘要 Bubble
-    const summaryContents: any[] = [
-      {
-        type: 'text',
-        text: '最新訊息',
-        weight: 'bold',
-        size: 'xl',
-        color: '#ffffff'
-      }
-    ];
+    // 標題
+    contents.push({
+      type: 'text',
+      text: '📢 佛教教育網站有新內容',
+      weight: 'bold',
+      size: 'lg',
+      color: '#1a1a1a'
+    });
 
-    const summaryItems: any[] = [];
+    contents.push({
+      type: 'separator',
+      margin: 'lg'
+    });
 
-    if (data.newBooks && data.newBooks.length > 0) {
-      summaryItems.push({
+    // 可點擊的摘要行（順序：停課 → 最新消息 → 新書 → 佛卡 → 影音）
+    const items: Array<{ emoji: string; text: string; count: number; command: string; color: string }> = [];
+
+    if (data.cancellations && data.cancellations > 0) {
+      items.push({ emoji: '⚠️', text: '停課通知', count: data.cancellations, command: '停課通知', color: '#E74C3C' });
+    }
+    if (data.news && data.news > 0) {
+      items.push({ emoji: '📰', text: '最新消息', count: data.news, command: '最新消息', color: '#3498DB' });
+    }
+    if (data.newBooks && data.newBooks > 0) {
+      items.push({ emoji: '📚', text: '新書上架', count: data.newBooks, command: '最新法寶', color: '#27AE60' });
+    }
+    if (data.buddhaCards && data.buddhaCards > 0) {
+      items.push({ emoji: '🖼️', text: '佛卡更新', count: data.buddhaCards, command: '佛卡', color: '#9B59B6' });
+    }
+    if (data.videos && data.videos > 0) {
+      items.push({ emoji: '🎥', text: '影音更新', count: data.videos, command: '最新影音', color: '#8E44AD' });
+    }
+
+    // 建立可點擊的摘要行
+    items.forEach(item => {
+      contents.push({
         type: 'box',
-        layout: 'baseline',
-        spacing: 'sm',
+        layout: 'horizontal',
+        margin: 'lg',
+        paddingAll: 'md',
+        backgroundColor: '#f0f0f0',
+        cornerRadius: 'lg',
+        action: {
+          type: 'message',
+          text: item.command  // 點擊後自動輸入這個指令
+        },
         contents: [
           {
             type: 'text',
-            text: '📚',
+            text: `${item.emoji} ${item.text} ${item.count} 項`,
             size: 'lg',
-            flex: 0
+            color: item.color,
+            weight: 'bold',
+            flex: 1
           },
           {
             type: 'text',
-            text: `新書上架 ${data.newBooks.length} 本`,
-            size: 'sm',
-            color: '#ffffff',
-            margin: 'md'
-          }
-        ]
-      });
-    }
-
-    if (data.news && data.news.length > 0) {
-      summaryItems.push({
-        type: 'box',
-        layout: 'baseline',
-        spacing: 'sm',
-        contents: [
-          {
-            type: 'text',
-            text: '📰',
+            text: '👆點我',
             size: 'lg',
-            flex: 0
-          },
-          {
-            type: 'text',
-            text: `新聞公告 ${data.news.length} 則`,
-            size: 'sm',
-            color: '#ffffff',
-            margin: 'md'
+            color: '#1a73e8',
+            align: 'end',
+            gravity: 'center',
+            weight: 'bold'
           }
         ]
       });
-    }
+    });
 
-    if (data.cancellations && data.cancellations.length > 0) {
-      summaryItems.push({
-        type: 'box',
-        layout: 'baseline',
-        spacing: 'sm',
-        contents: [
-          {
-            type: 'text',
-            text: '🚫',
-            size: 'lg',
-            flex: 0
-          },
-          {
-            type: 'text',
-            text: `停課通知 ${data.cancellations.length} 則`,
-            size: 'sm',
-            color: '#ffffff',
-            margin: 'md'
-          }
-        ]
-      });
-    }
-
-    const summaryBubble: FlexBubble = {
+    const bubble: FlexBubble = {
       type: 'bubble',
-      size: 'kilo',
-      hero: {
-        type: 'box',
-        layout: 'vertical',
-        contents: [
-          ...summaryContents,
-          {
-            type: 'box',
-            layout: 'vertical',
-            margin: 'lg',
-            spacing: 'sm',
-            contents: summaryItems
-          }
-        ],
-        backgroundColor: '#27AE60',
-        paddingAll: 'xl'
-      },
+      size: 'mega',
       body: {
         type: 'box',
         layout: 'vertical',
-        contents: [
-          {
-            type: 'text',
-            text: '向右滑動查看詳細內容 →',
-            size: 'xs',
-            color: '#999999',
-            align: 'center'
-          }
-        ]
+        contents: contents,
+        paddingAll: 'xl'
       }
     };
 
-    bubbles.push(summaryBubble);
+    // 返回包含 Flex Message 和 Quick Reply 的物件
+    return {
+      type: 'flex',
+      altText: '📢 佛教教育網站有新內容',
+      contents: bubble,
+      quickReply: {
+        items: [
+          {
+            type: 'action',
+            action: { type: 'message', label: '⚠️停課通知', text: '停課通知' }
+          },
+          {
+            type: 'action',
+            action: { type: 'message', label: '📰最新消息', text: '最新消息' }
+          },
+          {
+            type: 'action',
+            action: { type: 'message', label: '📚最新法寶', text: '最新法寶' }
+          },
+          {
+            type: 'action',
+            action: { type: 'message', label: '🎥最新影音', text: '最新影音' }
+          }
+        ]
+      }
+    } as FlexMessage;
+  }
 
-    // 2. 新書 Bubbles
+  /**
+   * 創建整合通知 Flex Message（整合卡片式佈局）
+   * 每種類型一個卡片，最多 5-6 個 bubbles
+   */
+  createIntegratedNotification(data: {
+    newBooks?: Array<{ title: string; author?: string; url?: string; source?: string; coverUrl?: string }>;
+    news?: Array<{ title: string; date?: string; url?: string; content?: string }>;
+    cancellations?: Array<{ courseName: string; cancelDate?: string; instructor?: string; time?: string; url?: string }>;
+    videos?: Array<{ title: string; instructor?: string; episodeCount?: number | string; url?: string }>;
+  }): FlexMessage {
+    const bubbles: FlexBubble[] = [];
+
+    // 官網連結
+    const WEBSITE_LINKS = {
+      books: 'https://www.budaedu.org/#/books',
+      buddhaCards: 'https://www.budaedu.org/#/pictures',
+      news: 'https://www.budaedu.org/#/bulletins',
+      cancellations: 'https://www.budaedu.org/#/bulletins/course-cancel',
+      videos: 'https://www.budaedu.org/#/series',
+    };
+
+    // 1. 📚 新書上架卡片
     if (data.newBooks && data.newBooks.length > 0) {
-      const newBooksBubbles = this.createNewBooksCarousel(data.newBooks).contents as FlexCarousel;
-      bubbles.push(...newBooksBubbles.contents);
+      const books = data.newBooks.filter(b => b.source !== 'buddha_cards');
+      const cards = data.newBooks.filter(b => b.source === 'buddha_cards');
+
+      if (books.length > 0) {
+        const bookItems = books.slice(0, 5).map(book => ({
+          type: 'box' as const,
+          layout: 'horizontal' as const,
+          contents: [
+            { type: 'text' as const, text: '•', flex: 0, size: 'sm' as const, color: '#555555' },
+            { type: 'text' as const, text: book.title.length > 18 ? book.title.substring(0, 18) + '...' : book.title, flex: 1, size: 'sm' as const, color: '#333333', margin: 'sm' as const, wrap: true }
+          ],
+          margin: 'sm' as const
+        }));
+
+        bubbles.push({
+          type: 'bubble',
+          size: 'kilo',
+          header: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              { type: 'text', text: '📚 新書上架', weight: 'bold', size: 'lg', color: '#ffffff' },
+              { type: 'text', text: `共 ${books.length} 本新書`, size: 'xs', color: '#ffffff', margin: 'sm' }
+            ],
+            backgroundColor: '#27AE60',
+            paddingAll: 'lg'
+          },
+          body: { type: 'box', layout: 'vertical', contents: bookItems, paddingAll: 'lg' },
+          footer: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [{ type: 'button', action: { type: 'uri', label: '查看更多 →', uri: WEBSITE_LINKS.books }, style: 'primary', color: '#27AE60', height: 'sm' }]
+          }
+        });
+      }
+
+      if (cards.length > 0) {
+        const cardItems = cards.slice(0, 5).map(card => ({
+          type: 'box' as const,
+          layout: 'horizontal' as const,
+          contents: [
+            { type: 'text' as const, text: '•', flex: 0, size: 'sm' as const, color: '#555555' },
+            { type: 'text' as const, text: card.title.length > 18 ? card.title.substring(0, 18) + '...' : card.title, flex: 1, size: 'sm' as const, color: '#333333', margin: 'sm' as const, wrap: true }
+          ],
+          margin: 'sm' as const
+        }));
+
+        bubbles.push({
+          type: 'bubble',
+          size: 'kilo',
+          header: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              { type: 'text', text: '🖼️ 佛卡更新', weight: 'bold', size: 'lg', color: '#ffffff' },
+              { type: 'text', text: `共 ${cards.length} 張佛卡`, size: 'xs', color: '#ffffff', margin: 'sm' }
+            ],
+            backgroundColor: '#9B59B6',
+            paddingAll: 'lg'
+          },
+          body: { type: 'box', layout: 'vertical', contents: cardItems, paddingAll: 'lg' },
+          footer: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [{ type: 'button', action: { type: 'uri', label: '查看更多 →', uri: WEBSITE_LINKS.buddhaCards }, style: 'primary', color: '#9B59B6', height: 'sm' }]
+          }
+        });
+      }
     }
 
-    // 3. 新聞 Bubbles
-    if (data.news && data.news.length > 0) {
-      const newsBubbles = this.createNewsCarousel(data.news).contents as FlexCarousel;
-      bubbles.push(...newsBubbles.contents);
-    }
-
-    // 4. 停課 Bubbles
+    // 2. ⚠️ 停課通知卡片
     if (data.cancellations && data.cancellations.length > 0) {
-      const cancellationBubbles = this.createCancellationCarousel(data.cancellations).contents as FlexCarousel;
-      bubbles.push(...cancellationBubbles.contents);
+      const cancelItems = data.cancellations.slice(0, 5).map(item => ({
+        type: 'box' as const,
+        layout: 'vertical' as const,
+        contents: [
+          { type: 'text' as const, text: `📌 ${item.courseName}`, size: 'sm' as const, color: '#E74C3C', weight: 'bold' as const },
+          { type: 'text' as const, text: `${(item.cancelDate || '').substring(0, 10)} ${item.time || ''} - ${item.instructor || ''}`.trim(), size: 'xs' as const, color: '#666666', margin: 'xs' as const }
+        ],
+        margin: 'md' as const
+      }));
+
+      bubbles.push({
+        type: 'bubble',
+        size: 'kilo',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: '⚠️ 停課通知', weight: 'bold', size: 'lg', color: '#ffffff' },
+            { type: 'text', text: `今日 ${data.cancellations.length} 堂課停課`, size: 'xs', color: '#ffffff', margin: 'sm' }
+          ],
+          backgroundColor: '#E74C3C',
+          paddingAll: 'lg'
+        },
+        body: { type: 'box', layout: 'vertical', contents: cancelItems, paddingAll: 'lg' },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [{ type: 'button', action: { type: 'uri', label: '查看詳情 →', uri: WEBSITE_LINKS.cancellations }, style: 'primary', color: '#E74C3C', height: 'sm' }]
+        }
+      });
+    }
+
+    // 3. 📰 最新消息卡片
+    if (data.news && data.news.length > 0) {
+      const newsItems = data.news.slice(0, 5).map(item => ({
+        type: 'box' as const,
+        layout: 'vertical' as const,
+        contents: [
+          { type: 'text' as const, text: item.title.length > 22 ? item.title.substring(0, 22) + '...' : item.title, size: 'sm' as const, color: '#333333', wrap: true },
+          { type: 'text' as const, text: item.date || '', size: 'xs' as const, color: '#999999', margin: 'xs' as const }
+        ],
+        margin: 'md' as const
+      }));
+
+      bubbles.push({
+        type: 'bubble',
+        size: 'kilo',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: '📰 最新消息', weight: 'bold', size: 'lg', color: '#ffffff' },
+            { type: 'text', text: `共 ${data.news.length} 則公告`, size: 'xs', color: '#ffffff', margin: 'sm' }
+          ],
+          backgroundColor: '#3498DB',
+          paddingAll: 'lg'
+        },
+        body: { type: 'box', layout: 'vertical', contents: newsItems, paddingAll: 'lg' },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [{ type: 'button', action: { type: 'uri', label: '查看更多 →', uri: WEBSITE_LINKS.news }, style: 'primary', color: '#3498DB', height: 'sm' }]
+        }
+      });
+    }
+
+    // 4. 🎥 最新影音卡片
+    if (data.videos && data.videos.length > 0) {
+      const videoItems = data.videos.slice(0, 5).map(item => ({
+        type: 'box' as const,
+        layout: 'vertical' as const,
+        contents: [
+          { type: 'text' as const, text: item.title.length > 18 ? item.title.substring(0, 18) + '...' : item.title, size: 'sm' as const, color: '#333333', wrap: true },
+          { type: 'text' as const, text: `${item.instructor || ''} ${item.episodeCount ? `| ${item.episodeCount} 集` : ''}`.trim(), size: 'xs' as const, color: '#666666', margin: 'xs' as const }
+        ],
+        margin: 'md' as const
+      }));
+
+      bubbles.push({
+        type: 'bubble',
+        size: 'kilo',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: '🎥 最新影音', weight: 'bold', size: 'lg', color: '#ffffff' },
+            { type: 'text', text: `共 ${data.videos.length} 個系列`, size: 'xs', color: '#ffffff', margin: 'sm' }
+          ],
+          backgroundColor: '#8E44AD',
+          paddingAll: 'lg'
+        },
+        body: { type: 'box', layout: 'vertical', contents: videoItems, paddingAll: 'lg' },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [{ type: 'button', action: { type: 'uri', label: '查看更多 →', uri: WEBSITE_LINKS.videos }, style: 'primary', color: '#8E44AD', height: 'sm' }]
+        }
+      });
+    }
+
+    if (bubbles.length === 0) {
+      bubbles.push({
+        type: 'bubble',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: '📢 佛教教育網站', weight: 'bold', size: 'lg' },
+            { type: 'text', text: '目前沒有新的更新', size: 'sm', color: '#666666', margin: 'md' }
+          ]
+        }
+      });
     }
 
     return {

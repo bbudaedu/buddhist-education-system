@@ -44,7 +44,7 @@ export class WebhookHandler {
       setImmediate(async () => {
         try {
           const events: line.WebhookEvent[] = req.body.events || [];
-          
+
           // 處理每個事件
           await Promise.all(
             events.map(event => this.processEvent(event))
@@ -102,10 +102,10 @@ export class WebhookHandler {
         userId: 'source' in event ? event.source?.userId : undefined,
         operation: `processEvent_${event.type}`
       };
-      
+
       // 使用統一錯誤處理
       const friendlyMessage = ErrorHandler.handle(error as Error, errorContext);
-      
+
       // 嘗試發送錯誤訊息給用戶（如果有 replyToken）
       if ('replyToken' in event && event.replyToken) {
         try {
@@ -156,6 +156,12 @@ export class WebhookHandler {
         return;
       }
 
+      // 檢查是否為「停課通知」指令
+      if (userMessage.trim() === '停課通知') {
+        await this.handleCancellationsCommand(replyToken);
+        return;
+      }
+
       // 檢查是否為「最新法寶」指令
       const normalizedMessage = userMessage.trim();
       if (normalizedMessage === '最新法寶' || normalizedMessage === '最新書籍') {
@@ -189,10 +195,10 @@ export class WebhookHandler {
         userMessage,
         operation: 'processMessage'
       };
-      
+
       // 使用統一錯誤處理
       const friendlyMessage = ErrorHandler.handle(error as Error, errorContext);
-      
+
       // 發送友善的錯誤訊息
       try {
         await lineMessagingService.sendErrorMessage(replyToken, friendlyMessage);
@@ -213,13 +219,13 @@ export class WebhookHandler {
   private async handleBulletinsCommand(replyToken: string): Promise<void> {
     try {
       console.log('Fetching latest bulletins...');
-      
+
       // 取得停課公告（最多 8 則）
       const courseCancellations = await bulletinService.getCourseCancellations(8);
-      
+
       // 取得最新消息（最多 9 則，因為第一張要放停課公告）
       const bulletins = await bulletinService.getLatestBulletins(9);
-      
+
       if (bulletins.length === 0 && courseCancellations.length === 0) {
         await lineMessagingService.sendTextMessage(replyToken, '目前沒有最新消息');
         return;
@@ -227,11 +233,110 @@ export class WebhookHandler {
 
       // 發送 Carousel 訊息（帶 Quick Reply，第一張為停課公告）
       await lineMessagingService.sendBulletinsCarousel(replyToken, bulletins, courseCancellations);
-      
+
       console.log(`Successfully sent ${bulletins.length} bulletins with ${courseCancellations.length} course cancellations`);
     } catch (error) {
       console.error('Error handling bulletins command:', error);
       await lineMessagingService.sendErrorMessage(replyToken, '無法取得最新消息，請稍後再試');
+    }
+  }
+
+  /**
+   * 處理停課通知指令
+   * @param replyToken 回覆 token
+   */
+  private async handleCancellationsCommand(replyToken: string): Promise<void> {
+    try {
+      console.log('Fetching course cancellations...');
+
+      // 取得停課公告（最多 10 則）
+      const courseCancellations = await bulletinService.getCourseCancellations(10);
+
+      // 建立停課內容
+      let courseCancelContent = '🎉 目前沒有停課公告\n所有課程正常進行！';
+
+      if (courseCancellations.length > 0) {
+        courseCancelContent = courseCancellations.map((cancel: any) => {
+          const date = new Date(cancel.cancelDate).toLocaleDateString('zh-TW', {
+            month: '2-digit',
+            day: '2-digit'
+          });
+          return `📅 ${date} ${cancel.courseTitle}`;
+        }).join('\n');
+      }
+
+      // 建立簡化的停課通知 Flex Message（單一卡片）
+      const flexMessage: line.FlexMessage = {
+        type: 'flex',
+        altText: `⚠️ 停課通知 (${courseCancellations.length} 則)`,
+        contents: {
+          type: 'bubble',
+          hero: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'text',
+                text: '⚠️',
+                size: '3xl',
+                align: 'center'
+              }
+            ],
+            backgroundColor: '#FFF3E0',
+            paddingAll: 'md'
+          },
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'text',
+                text: '停課公告',
+                weight: 'bold',
+                size: 'xl',
+                wrap: true
+              },
+              {
+                type: 'separator',
+                margin: 'md'
+              },
+              {
+                type: 'text',
+                text: courseCancelContent,
+                size: 'lg',
+                wrap: true,
+                color: '#666666',
+                margin: 'md'
+              }
+            ],
+            spacing: 'sm'
+          },
+          footer: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'button',
+                action: {
+                  type: 'uri',
+                  label: '查看完整停課公告',
+                  uri: 'https://www.budaedu.org/#/bulletins/course-cancel'
+                },
+                style: 'primary',
+                color: '#FF9800'
+              }
+            ]
+          }
+        }
+      };
+
+      // 發送訊息
+      await lineMessagingService.replyMessage(replyToken, [flexMessage]);
+
+      console.log(`Successfully sent ${courseCancellations.length} course cancellations`);
+    } catch (error) {
+      console.error('Error handling cancellations command:', error);
+      await lineMessagingService.sendErrorMessage(replyToken, '無法取得停課通知，請稍後再試');
     }
   }
 
@@ -243,8 +348,8 @@ export class WebhookHandler {
    * @returns Promise<boolean> 是否為訂閱指令
    */
   private async handleSubscriptionCommand(
-    userMessage: string, 
-    replyToken: string, 
+    userMessage: string,
+    replyToken: string,
     userId?: string
   ): Promise<boolean> {
     if (!userId) {
@@ -333,15 +438,15 @@ export class WebhookHandler {
         userMessage,
         operation: 'handleSubscriptionCommand'
       };
-      
+
       const friendlyMessage = ErrorHandler.handle(error as Error, errorContext);
-      
+
       try {
         await lineMessagingService.sendErrorMessage(replyToken, friendlyMessage);
       } catch (replyError) {
         ErrorHandler.log(replyError as Error, { ...errorContext, operation: 'sendErrorMessage_subscription' });
       }
-      
+
       return true; // 即使出錯也算是處理了訂閱指令
     }
   }
@@ -353,15 +458,15 @@ export class WebhookHandler {
    * @param notificationType 通知類型
    */
   private async handleSubscribeToTypeCommand(
-    replyToken: string, 
-    userId: string, 
+    replyToken: string,
+    userId: string,
     notificationType: 'news' | 'cancellation' | 'new_books' | 'videos'
   ): Promise<void> {
     console.log(`User ${userId} requesting subscription to ${notificationType}`);
 
     // 檢查用戶是否已經訂閱該類型
     const isAlreadySubscribed = await subscriptionService.isUserSubscribedToType(userId, notificationType);
-    
+
     if (isAlreadySubscribed) {
       await lineMessagingService.sendSubscriptionTypeAlreadyActiveMessage(replyToken, notificationType);
       return;
@@ -369,7 +474,7 @@ export class WebhookHandler {
 
     // 訂閱特定類型
     const success = await subscriptionService.subscribeToType(userId, notificationType);
-    
+
     if (success) {
       await lineMessagingService.sendSubscriptionTypeSuccessMessage(replyToken, notificationType);
       console.log(`User ${userId} successfully subscribed to ${notificationType}`);
@@ -391,7 +496,7 @@ export class WebhookHandler {
     console.log(`User ${userId} requesting subscription to all types`);
 
     const allTypes: ('news' | 'cancellation' | 'new_books' | 'videos')[] = ['news', 'cancellation', 'new_books', 'videos'];
-    
+
     try {
       // 訂閱所有類型
       for (const type of allTypes) {
@@ -450,15 +555,15 @@ export class WebhookHandler {
    * @param notificationType 通知類型
    */
   private async handleUnsubscribeFromTypeCommand(
-    replyToken: string, 
-    userId: string, 
+    replyToken: string,
+    userId: string,
     notificationType: 'news' | 'cancellation' | 'new_books' | 'videos'
   ): Promise<void> {
     console.log(`User ${userId} requesting unsubscription from ${notificationType}`);
 
     // 檢查用戶是否訂閱該類型
     const isSubscribed = await subscriptionService.isUserSubscribedToType(userId, notificationType);
-    
+
     if (!isSubscribed) {
       await lineMessagingService.sendNotSubscribedToTypeMessage(replyToken, notificationType);
       return;
@@ -466,7 +571,7 @@ export class WebhookHandler {
 
     // 取消訂閱特定類型
     const success = await subscriptionService.unsubscribeFromType(userId, notificationType);
-    
+
     if (success) {
       await lineMessagingService.sendUnsubscriptionTypeSuccessMessage(replyToken, notificationType);
       console.log(`User ${userId} successfully unsubscribed from ${notificationType}`);
@@ -486,7 +591,7 @@ export class WebhookHandler {
 
     // 檢查用戶是否已經訂閱
     const isSubscribed = await subscriptionService.isUserSubscribed(userId);
-    
+
     if (!isSubscribed) {
       await lineMessagingService.sendNotSubscribedMessage(replyToken);
       return;
@@ -494,7 +599,7 @@ export class WebhookHandler {
 
     // 取消訂閱
     const success = await subscriptionService.unsubscribeUser(userId);
-    
+
     if (success) {
       await lineMessagingService.sendUnsubscriptionSuccessMessage(replyToken);
       console.log(`User ${userId} successfully unsubscribed from daily notifications`);
@@ -514,7 +619,7 @@ export class WebhookHandler {
 
     // 取得用戶訂閱資訊
     const subscription = await subscriptionService.getUserSubscription(userId);
-    
+
     await lineMessagingService.sendSubscriptionStatusMessage(replyToken, subscription);
   }
 
@@ -715,10 +820,10 @@ export class WebhookHandler {
 
       // 1. 取得真實的停課公告（最多 3 則）
       const courseCancellations = await bulletinService.getCourseCancellations(3);
-      
+
       // 2. 取得真實的新聞公告（最多 3 則）
       const bulletins = await bulletinService.getLatestBulletins(3);
-      
+
       // 3. 取得真實的新書資料（從資料庫）
       const { databaseService } = await import('../services/databaseService');
       const recentBooks = await databaseService.searchBooks('', 3);
@@ -791,8 +896,8 @@ export class WebhookHandler {
 
       // 檢查是否有資料
       const hasData = (realData.newBooks && realData.newBooks.length > 0) ||
-                      (realData.news && realData.news.length > 0) ||
-                      (realData.cancellations && realData.cancellations.length > 0);
+        (realData.news && realData.news.length > 0) ||
+        (realData.cancellations && realData.cancellations.length > 0);
 
       if (!hasData) {
         await lineMessagingService.sendTextMessage(
@@ -825,37 +930,37 @@ export class WebhookHandler {
       console.log(`- Books: ${realData.newBooks?.length || 0}`);
       console.log(`- News: ${realData.news?.length || 0}`);
       console.log(`- Cancellations: ${realData.cancellations?.length || 0}`);
-      
+
       const message = flexMessageService.createIntegratedNotification(realData);
-      
+
       // 驗證訊息結構
       const messageJson = JSON.stringify(message);
       console.log(`Message size: ${messageJson.length} bytes`);
-      
+
       // 檢查 Carousel bubble 數量
       if (message.contents.type === 'carousel') {
         const bubbleCount = message.contents.contents.length;
         console.log(`Total bubbles: ${bubbleCount}`);
-        
+
         if (bubbleCount > 10) {
           throw new Error(`Too many bubbles: ${bubbleCount} (max 10)`);
         }
       }
-      
+
       // 驗證 JSON 是否有效（檢查是否有無效字元）
       try {
         JSON.parse(messageJson);
       } catch (jsonError) {
         throw new Error(`Invalid JSON structure: ${jsonError}`);
       }
-      
+
       // 發送訊息
       await lineMessagingService.replyMessage(replyToken, [message]);
-      
+
       console.log('✅ Sent real data test notification successfully');
     } catch (error) {
       console.error('Error sending real data test:', error);
-      
+
       // 嘗試發送錯誤訊息（可能會因為 replyToken 已使用而失敗）
       try {
         await lineMessagingService.sendErrorMessage(
@@ -876,17 +981,17 @@ export class WebhookHandler {
   private async processFollowEvent(event: line.FollowEvent): Promise<void> {
     try {
       console.log('New user followed the bot');
-      
+
       // 發送歡迎訊息（包含訂閱選項）
       await lineMessagingService.sendWelcomeMessageWithSubscription(event.replyToken);
-      
+
     } catch (error) {
       // 建立錯誤上下文
       const errorContext: ErrorContext = {
         userId: event.source?.userId,
         operation: 'processFollowEvent'
       };
-      
+
       // 記錄錯誤但不發送錯誤訊息給用戶（歡迎訊息失敗不需要通知）
       ErrorHandler.log(error as Error, errorContext);
     }
