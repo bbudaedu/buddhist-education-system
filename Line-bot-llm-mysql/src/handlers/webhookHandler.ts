@@ -9,6 +9,7 @@ import { adminService } from '../services/adminService';
 import { flexMessageService } from '../services/flexMessageService';
 import { dharmaMediaHandler } from './dharmaMediaHandler';
 import { ErrorHandler, ErrorContext } from './errorHandler';
+import { systemSettingsService } from '../services/systemSettingsService';
 
 /**
  * Webhook Handler for LINE Bot
@@ -178,6 +179,13 @@ export class WebhookHandler {
       // 檢查是否為訂閱相關指令
       if (await this.handleSubscriptionCommand(userMessage, replyToken, userId)) {
         return; // 如果是訂閱指令，直接返回
+      }
+
+      // 檢查 LLM 是否啟用，若關閉則靜默不回應
+      const llmEnabled = await systemSettingsService.isLlmEnabled();
+      if (!llmEnabled) {
+        console.log('LLM is disabled, skipping Gemini query');
+        return; // 靜默返回，不做任何回應
       }
 
       // 使用 Gemini Service 處理用戶查詢
@@ -683,6 +691,30 @@ export class WebhookHandler {
     const message = userMessage.trim().toLowerCase();
 
     try {
+      // LLM ON - 開啟書庫助理 LLM 功能
+      if (message === 'llm on') {
+        await systemSettingsService.setLlmEnabled(true);
+        await lineMessagingService.sendTextMessage(replyToken, '✅ 書庫助理 LLM 功能已開啟');
+        console.log('Admin enabled LLM');
+        return true;
+      }
+
+      // LLM OFF - 關閉書庫助理 LLM 功能
+      if (message === 'llm off') {
+        await systemSettingsService.setLlmEnabled(false);
+        await lineMessagingService.sendTextMessage(replyToken, '⏸️ 書庫助理 LLM 功能已關閉');
+        console.log('Admin disabled LLM');
+        return true;
+      }
+
+      // LLM STATUS - 查詢 LLM 狀態
+      if (message === 'llm status') {
+        const isEnabled = await systemSettingsService.isLlmEnabled();
+        const statusText = isEnabled ? '🟢 開啟中' : '🔴 關閉中';
+        await lineMessagingService.sendTextMessage(replyToken, `📚 書庫助理 LLM 狀態: ${statusText}`);
+        return true;
+      }
+
       // flex1 - 新書通知測試
       if (message === 'flex1') {
         await this.sendTestNewBooksNotification(replyToken);
