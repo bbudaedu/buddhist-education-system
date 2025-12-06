@@ -1,10 +1,12 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 import { serverConfig, schedulerConfig } from './config/index';
 import { webhookHandler } from './handlers/webhookHandler';
 import { getSchedulerInstance } from './services/dailySchedulerService';
 import { healthMonitoringService } from './services/healthMonitoringService';
 import { adminDashboardService } from './services/adminDashboardService';
+import memberRoutes from './routes/memberRoutes';
 
 /**
  * LINE Book Query Bot - Express Server
@@ -16,11 +18,14 @@ const app = express();
 
 // 設定 CORS middleware
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://liff.line.me'] // 生產環境只允許 LINE LIFF
+  origin: process.env.NODE_ENV === 'production'
+    ? ['https://liff.line.me', 'https://www.budaedu.org'] // 生產環境允許 LIFF 和官網
     : true, // 開發環境允許所有來源
   credentials: true
 }));
+
+// 提供靜態檔案（LIFF 會員中心）
+app.use('/liff', express.static(path.join(__dirname, '../static/liff')));
 
 // 設定 JSON body parser middleware（但不應用於 webhook 路由）
 app.use((req, res, next) => {
@@ -39,7 +44,7 @@ app.get('/health', async (_req, res) => {
     // 測試資料庫連線
     const { databaseService } = await import('./services/databaseService');
     const dbConnected = await databaseService.testConnection();
-    
+
     res.json({
       status: dbConnected ? 'ok' : 'degraded',
       timestamp: new Date().toISOString(),
@@ -63,10 +68,10 @@ app.get('/health', async (_req, res) => {
 app.get('/health/detailed', async (_req, res) => {
   try {
     const healthStatus = await healthMonitoringService.performHealthCheck();
-    
-    const httpStatus = healthStatus.status === 'healthy' ? 200 : 
-                      healthStatus.status === 'degraded' ? 200 : 503;
-    
+
+    const httpStatus = healthStatus.status === 'healthy' ? 200 :
+      healthStatus.status === 'degraded' ? 200 : 503;
+
     res.status(httpStatus).json(healthStatus);
   } catch (error) {
     res.status(503).json({
@@ -91,7 +96,7 @@ app.get('/health/detailed', async (_req, res) => {
 app.get('/health/metrics', async (_req, res) => {
   try {
     const lastHealthCheck = healthMonitoringService.getLastHealthCheck();
-    
+
     if (!lastHealthCheck) {
       // 如果沒有最近的健康檢查，執行一次
       const healthStatus = await healthMonitoringService.performHealthCheck();
@@ -100,7 +105,7 @@ app.get('/health/metrics', async (_req, res) => {
         timestamp: healthStatus.timestamp
       });
     }
-    
+
     return res.json({
       metrics: lastHealthCheck.metrics,
       timestamp: lastHealthCheck.timestamp,
@@ -124,26 +129,26 @@ app.get('/', (_req, res) => {
       health: '/health (GET)',
       healthDetailed: '/health/detailed (GET)',
       healthMetrics: '/health/metrics (GET)',
-      
+
       // Core functionality
       webhook: '/webhook (POST)',
-      
+
       // Scheduler management
       scheduler: '/admin/scheduler (GET)',
       manualTrigger: '/admin/scheduler/trigger (POST)',
       processFile: '/admin/scheduler/process-file (POST)',
-      
+
       // Statistics and monitoring
       subscriptionStats: '/admin/stats/subscriptions (GET)',
       deliveryStats: '/admin/stats/deliveries (GET)',
       systemStatus: '/admin/status (GET)',
       performance: '/admin/performance (GET)',
-      
+
       // Administrative actions
       manualNotificationTrigger: '/admin/notifications/trigger (POST)',
       auditLog: '/admin/audit (GET)',
       auditCleanup: '/admin/audit/cleanup (POST)',
-      
+
       // Website monitoring notifications
       websiteMonitoringNotification: '/api/notifications/website-monitoring (POST)',
       testNotification: '/api/notifications/test (POST)',
@@ -169,7 +174,7 @@ app.get('/admin/scheduler', (_req, res) => {
 
     const scheduler = getSchedulerInstance();
     const status = scheduler.getStatus();
-    
+
     return res.json({
       enabled: true,
       ...status,
@@ -200,7 +205,7 @@ app.post('/admin/scheduler/trigger', async (_req, res) => {
 
     const scheduler = getSchedulerInstance();
     const result = await scheduler.manualTrigger();
-    
+
     return res.json({
       message: 'Manual trigger completed',
       result
@@ -233,7 +238,7 @@ app.post('/admin/scheduler/process-file', async (req, res) => {
 
     const scheduler = getSchedulerInstance();
     await scheduler.processOutputFileManually(filePath);
-    
+
     return res.json({
       message: 'File processed successfully',
       filePath
@@ -303,7 +308,7 @@ app.post('/admin/notifications/trigger', async (req, res) => {
   try {
     const { triggeredBy = 'Admin API', testData } = req.body;
     const result = await adminDashboardService.triggerManualNotification(triggeredBy, testData);
-    
+
     const httpStatus = result.success ? 200 : 500;
     return res.status(httpStatus).json(result);
   } catch (error) {
@@ -320,7 +325,7 @@ app.get('/admin/audit', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 50;
     const auditLog = adminDashboardService.getAuditLog(limit);
-    
+
     return res.json({
       entries: auditLog,
       total: auditLog.length,
@@ -339,7 +344,7 @@ app.post('/admin/audit/cleanup', async (req, res) => {
   try {
     const { daysOld = 30 } = req.body;
     const removedCount = adminDashboardService.clearOldAuditEntries(daysOld);
-    
+
     return res.json({
       message: 'Audit cleanup completed',
       removedEntries: removedCount,
@@ -369,9 +374,12 @@ app.post('/api/notifications/test', handleTestNotification);
 // 通知服務健康檢查
 app.get('/api/notifications/health', handleNotificationHealthCheck);
 
+// 會員 API 路由
+app.use('/api/member', memberRoutes);
+
 // 註冊 LINE Webhook 路由
 // 注意：LINE middleware 必須在 webhook 路由之前應用
-app.post('/webhook', 
+app.post('/webhook',
   webhookHandler.getMiddleware(), // LINE SDK middleware 用於簽章驗證和 body parsing
   webhookHandler.handleWebhook.bind(webhookHandler) // Webhook 處理器
 );
@@ -406,7 +414,7 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 
   // 一般錯誤處理
   const isDevelopment = serverConfig.nodeEnv === 'development';
-  
+
   return res.status(500).json({
     error: 'Internal Server Error',
     message: isDevelopment ? err.message : 'Something went wrong',
@@ -422,7 +430,7 @@ app.listen(port, async () => {
   console.log(`📊 Health check: http://localhost:${port}/health`);
   console.log(`🤖 Webhook endpoint: http://localhost:${port}/webhook`);
   console.log(`🌍 Environment: ${serverConfig.nodeEnv}`);
-  
+
   // 啟動健康監控
   try {
     healthMonitoringService.startMonitoring(60000); // 每分鐘檢查一次
@@ -430,7 +438,7 @@ app.listen(port, async () => {
   } catch (error) {
     console.error('❌ Failed to start health monitoring:', error instanceof Error ? error.message : 'Unknown error');
   }
-  
+
   // 啟動每日排程器（如果啟用）
   // 注意：網站監控由 Python 系統 (ebook/run_daily_monitoring.py) 負責
   // Python 系統會呼叫此 API 來推播通知給訂閱用戶
@@ -447,7 +455,7 @@ app.listen(port, async () => {
     console.log('📅 Daily scheduler is disabled');
     console.log('📰 Website monitoring: Handled by Python system (ebook/run_daily_monitoring.py)');
   }
-  
+
   if (serverConfig.nodeEnv === 'development') {
     console.log(`\n📝 Available endpoints:`);
     console.log(`   GET  /                              - API information`);
@@ -467,7 +475,7 @@ app.listen(port, async () => {
 // 優雅關閉處理
 process.on('SIGTERM', () => {
   console.log('📴 SIGTERM received, shutting down gracefully...');
-  
+
   // 停止健康監控
   try {
     healthMonitoringService.stopMonitoring();
@@ -475,7 +483,7 @@ process.on('SIGTERM', () => {
   } catch (error) {
     console.error('❌ Error stopping health monitoring:', error instanceof Error ? error.message : 'Unknown error');
   }
-  
+
   // 停止排程器
   if (schedulerConfig.enabled) {
     try {
@@ -486,13 +494,13 @@ process.on('SIGTERM', () => {
       console.error('❌ Error stopping scheduler:', error instanceof Error ? error.message : 'Unknown error');
     }
   }
-  
+
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
   console.log('📴 SIGINT received, shutting down gracefully...');
-  
+
   // 停止健康監控
   try {
     healthMonitoringService.stopMonitoring();
@@ -500,7 +508,7 @@ process.on('SIGINT', () => {
   } catch (error) {
     console.error('❌ Error stopping health monitoring:', error instanceof Error ? error.message : 'Unknown error');
   }
-  
+
   // 停止排程器
   if (schedulerConfig.enabled) {
     try {
@@ -511,7 +519,7 @@ process.on('SIGINT', () => {
       console.error('❌ Error stopping scheduler:', error instanceof Error ? error.message : 'Unknown error');
     }
   }
-  
+
   process.exit(0);
 });
 

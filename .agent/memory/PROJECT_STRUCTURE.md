@@ -69,6 +69,11 @@ buddhist-education-system/
 - `email_sender.py` - Email functionality
 - `website_monitor.py` - Website monitoring
 - `notification_processor.py` - Notification handling
+- `api_data_fetcher.py` - **[NEW]** Unified API data fetching (replaces Selenium)
+- `api_website_monitor.py` - **[NEW]** API-based monitoring loop
+- `notification_state.py` - **[NEW]** State management for notifications
+- `unified_notification_service.py` - **[NEW]** LINE + Email notification service
+- `line_notification_service.py` - **[NEW]** LINE Messaging API integration
 
 ### LINE Book Query Bot (`/Line-bot-llm-mysql/`)
 

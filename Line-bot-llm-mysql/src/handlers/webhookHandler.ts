@@ -439,6 +439,12 @@ export class WebhookHandler {
         return true;
       }
 
+      // 學員中心入口
+      if (message === '學員中心' || message === '會員中心' || message === '個人設定' || message === '偏好設定') {
+        await this.handleStudentCenterCommand(replyToken);
+        return true;
+      }
+
       return false; // 不是訂閱指令
     } catch (error) {
       const errorContext: ErrorContext = {
@@ -676,6 +682,78 @@ export class WebhookHandler {
     };
 
     await lineMessagingService.replyMessage(replyToken, [textMessage]);
+  }
+
+  /**
+   * 處理學員中心指令
+   * @param replyToken 回覆 token
+   */
+  private async handleStudentCenterCommand(replyToken: string): Promise<void> {
+    console.log('User requesting student center');
+
+    const LIFF_URL = 'https://liff.line.me/2008639772-ndVeDxwD';
+
+    const flexMessage: line.FlexMessage = {
+      type: 'flex',
+      altText: '🎓 學員中心',
+      contents: {
+        type: 'bubble',
+        hero: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: '🎓',
+              size: '3xl',
+              align: 'center'
+            }
+          ],
+          backgroundColor: '#06C755',
+          paddingAll: 'lg'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: '學員中心',
+              weight: 'bold',
+              size: 'xl',
+              align: 'center'
+            },
+            {
+              type: 'text',
+              text: '設定您的通知偏好和 Email',
+              size: 'sm',
+              color: '#666666',
+              align: 'center',
+              margin: 'md'
+            }
+          ],
+          spacing: 'sm'
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'button',
+              action: {
+                type: 'uri',
+                label: '開啟學員中心',
+                uri: LIFF_URL
+              },
+              style: 'primary',
+              color: '#06C755'
+            }
+          ]
+        }
+      }
+    };
+
+    await lineMessagingService.replyMessage(replyToken, [flexMessage]);
   }
 
   /**

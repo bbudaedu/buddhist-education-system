@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>學員中心 - 佛陀教育基金會</title>
+    <link rel="stylesheet" href="member-center.css">
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <img src="logo.png" alt="佛陀教育基金會" class="logo">
+            <h1>學員中心</h1>
+        </header>
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>載入中...</p>
+        </div>
+        <div id="error" class="error hidden">
+            <p id="error-message">發生錯誤</p><button onclick="location.reload()">重試</button>
+        </div>
+        <main id="main-content" class="hidden">
+            <section class="card profile-card">
+                <div class="profile-header">
+                    <img id="profile-picture" src="" alt="頭像" class="avatar">
+                    <div class="profile-info">
+                        <h2 id="profile-name">用戶名稱</h2>
+                        <p id="profile-status" class="status">訂閱會員</p>
+                    </div>
+                </div>
+            </section>
+            <section class="card">
+                <h3>📧 Email 設定</h3>
+                <div id="email-section">
+                    <div id="email-display" class="hidden">
+                        <p>您的 Email：<strong id="current-email"></strong></p><span id="email-verified-badge"
+                            class="badge badge-success hidden">✓ 已驗證</span>
+                    </div>
+                    <div id="email-input-section"><label for="email-input">請輸入您的 Email：</label><input type="email"
+                            id="email-input" placeholder="example@email.com"><button id="send-verification-btn"
+                            class="btn btn-primary">發送驗證碼</button></div>
+                    <div id="verification-section" class="hidden"><label for="verification-code">請輸入驗證碼：</label><input
+                            type="text" id="verification-code" maxlength="6" placeholder="123456"><button
+                            id="verify-btn" class="btn btn-success">驗證</button></div>
+                </div>
+            </section>
+            <section class="card">
+                <h3>📱 通知方式</h3>
+                <div class="checkbox-group">
+                    <label class="checkbox-label"><input type="checkbox" id="channel-line" checked disabled><span>LINE
+                            推播（預設）</span></label>
+                    <label class="checkbox-label"><input type="checkbox" id="channel-email"><span>Email
+                            通知</span></label>
+                    <label class="checkbox-label"><input type="checkbox" id="channel-webpush"><span>桌面通知</span></label>
+                </div>
+            </section>
+            <section class="card">
+                <h3>📚 興趣偏好</h3>
+                <div class="checkbox-group">
+                    <label class="checkbox-label"><input type="checkbox" id="content-books"
+                            checked><span>法寶書籍</span></label>
+                    <label class="checkbox-label"><input type="checkbox" id="content-videos"><span>影音課程</span></label>
+                    <label class="checkbox-label"><input type="checkbox"
+                            id="content-livestream"><span>直播講座</span></label>
+                    <label class="checkbox-label"><input type="checkbox" id="content-news"><span>最新消息</span></label>
+                </div>
+            </section>
+            <section class="card">
+                <h3>⏰ 通知頻率</h3>
+                <div class="radio-group">
+                    <label class="radio-label"><input type="radio" name="frequency" value="realtime"
+                            checked><span>即時通知</span></label>
+                    <label class="radio-label"><input type="radio" name="frequency"
+                            value="daily"><span>每日摘要</span></label>
+                    <label class="radio-label"><input type="radio" name="frequency"
+                            value="weekly"><span>每週摘要</span></label>
+                </div>
+            </section>
+            <div class="actions"><button id="save-btn" class="btn btn-primary btn-large">儲存設定</button></div>
+            <div class="actions"><button id="close-btn" class="btn btn-secondary">關閉</button></div>
+        </main>
+        <div id="toast" class="toast hidden"></div>
+    </div>
+    <script src="member-center.js"></script>
+</body>
+
+</html>
