@@ -1,18 +1,19 @@
 # Project Context (專案上下文)
 
-**最後更新**: 2025-12-06
+**最後更新**: 2025-12-09
 **專案名稱**: Buddhist Education System (佛教教育系統)
 
 ## 1. 系統架構概覽
 本系統由兩個主要部分組成：
 1.  **Ebook Summary System (Python)**:
     - 負責網站監控、PDF 下載、AI 摘要生成 (Google Gemini)。
+    - **新增**: OCR 處理圖片型 PDF (`ocr_processor.py`)。
     - 自動化內容處理與通知分發。
-    - **新增**: Email 通知服務 (`email_notification_service.py`)。
+    - Email 通知服務 (`email_notification_service.py`)。
 2.  **LINE Book Query Bot (Node.js/TypeScript)**:
     - 提供 LINE 介面供用戶查詢書籍、接收通知。
     - 整合 MySQL 資料庫儲存用戶與書籍資料。
-    - **新增**: LIFF 學員中心、會員 API、Email 驗證。
+    - LIFF 學員中心、會員 API、Email 驗證。
 
 ## 2. 當前焦點功能: LIFF 學員中心 ✅
 - **目標**: 建立 LIFF 會員中心，支援 Email 驗證與多管道通知設定。

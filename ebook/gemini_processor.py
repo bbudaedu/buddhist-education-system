@@ -15,6 +15,13 @@ from typing import Optional, Dict, Any, Tuple
 import google.generativeai as genai
 import pypdf
 
+# OCR Processor for image-based PDFs
+try:
+    from ocr_processor import OCRProcessor
+    OCR_AVAILABLE = True
+except ImportError:
+    OCR_AVAILABLE = False
+
 
 class GeminiProcessor:
     """
@@ -37,9 +44,104 @@ class GeminiProcessor:
         self.logger = logger or logging.getLogger(__name__)
         self.client = None
         self.model_name = "gemini-2.5-flash"
+        self.ocr_processor = None  # Lazy initialization
         
         # Initialize Gemini client
         self._initialize_client()
+    
+    def _get_ocr_processor(self):
+        """
+        Get or initialize OCR processor (lazy initialization).
+        
+        Returns:
+            OCRProcessor instance or None if not available
+        """
+        if not OCR_AVAILABLE:
+            self.logger.warning("OCR processor not available (ocr_processor module not found)")
+            return None
+        
+        if self.ocr_processor is None:
+            try:
+                self.ocr_processor = OCRProcessor(self.api_key, self.logger)
+                self.logger.info("OCR processor initialized for image-based PDF handling")
+            except Exception as e:
+                self.logger.error(f"Failed to initialize OCR processor: {e}")
+                return None
+        
+        return self.ocr_processor
+    
+    def _is_content_quality_good(self, text: str, book_title: str = "") -> bool:
+        """
+        Check if extracted text is actual book content vs. metadata pages
+        (donation acknowledgments, copyright notices, etc.)
+        
+        Args:
+            text: Extracted text to evaluate
+            book_title: Book title for context
+            
+        Returns:
+            bool: True if text appears to be actual book content
+        """
+        if not text:
+            return False
+        
+        # Minimum content threshold (characters)
+        MIN_CONTENT_LENGTH = 500
+        
+        # Keywords that indicate metadata/non-content pages
+        METADATA_KEYWORDS = [
+            # Donation-related
+            "捐贈", "捐款", "助印", "印贈", "結緣", "功德", "回向", 
+            "恭印", "隨喜", "福田", "法施", "廣植", "善根",
+            # Copyright/publishing-related
+            "版權所有", "翻印必究", "財團法人", "基金會", 
+            "發行", "印刷", "出版社", "出版日期",
+            # Contact info
+            "電話", "傳真", "地址", "郵政劃撥", "郵撥帳號",
+            "電子郵件", "網址", "索取", "免費結緣",
+            # Other metadata
+            "目錄", "序言", "前言", "編輯說明"
+        ]
+        
+        # Keywords that indicate actual Buddhist content
+        CONTENT_KEYWORDS = [
+            # Buddhist concepts
+            "佛陀", "菩薩", "般若", "涅槃", "輪迴", "解脫", "成佛",
+            "法門", "禪定", "智慧", "慈悲", "佛法", "修行", "覺悟",
+            "眾生", "煩惱", "業障", "因果", "三寶", "五戒", "十善",
+            "八正道", "四聖諦", "六度", "唯識", "淨土", "念佛",
+            # Common Buddhist text markers
+            "經云", "論云", "佛說", "如是我聞", "爾時", "世尊",
+            # Chapter/section markers
+            "第一章", "第二章", "第一節", "第二節"
+        ]
+        
+        text_lower = text.lower()
+        text_length = len(text)
+        
+        # Count metadata vs content keywords
+        metadata_count = sum(1 for kw in METADATA_KEYWORDS if kw in text)
+        content_count = sum(1 for kw in CONTENT_KEYWORDS if kw in text)
+        
+        self.logger.debug(f"Text quality check: length={text_length}, metadata_kw={metadata_count}, content_kw={content_count}")
+        
+        # If text is too short, likely just metadata pages
+        if text_length < MIN_CONTENT_LENGTH:
+            self.logger.info(f"Text too short ({text_length} chars < {MIN_CONTENT_LENGTH}), considered low quality")
+            return False
+        
+        # If metadata keywords dominate, likely not real content
+        if metadata_count > 5 and content_count < 3:
+            self.logger.info(f"Too many metadata keywords ({metadata_count}) vs content keywords ({content_count})")
+            return False
+        
+        # If text is mostly about donations/publishing
+        donation_related = sum(1 for kw in ["捐贈", "捐款", "助印", "功德", "回向", "恭印"] if kw in text)
+        if donation_related >= 3 and text_length < 2000:
+            self.logger.info(f"Text appears to be donation/acknowledgment page ({donation_related} donation keywords)")
+            return False
+        
+        return True
     
     def _initialize_client(self):
         """
@@ -286,9 +388,34 @@ class GeminiProcessor:
             # Try to extract text from PDF first
             extracted_text = self.extract_pdf_text(pdf_path)
             
+            # Check if extracted text is low quality (e.g., only donation/copyright pages)
+            use_ocr = False
             if not extracted_text:
-                self.logger.warning(f"No text extracted from PDF (likely image-based), switching to Google search method for: {book_title}")
-                return self.generate_summary_from_search(book_title, author)
+                self.logger.info(f"No text extracted from PDF (likely image-based), attempting OCR for: {book_title}")
+                use_ocr = True
+            elif not self._is_content_quality_good(extracted_text, book_title):
+                self.logger.info(f"Extracted text appears to be metadata only (donation/copyright pages), attempting OCR for: {book_title}")
+                use_ocr = True
+            
+            if use_ocr:
+                # Try OCR for image-based PDFs
+                ocr_processor = self._get_ocr_processor()
+                if ocr_processor:
+                    try:
+                        ocr_text = ocr_processor.process_pdf(pdf_path, book_title)
+                        if ocr_text and len(ocr_text) > len(extracted_text or ""):
+                            extracted_text = ocr_text
+                            self.logger.info(f"OCR successful, extracted {len(extracted_text)} characters")
+                        else:
+                            self.logger.warning("OCR returned less text than pypdf, keeping original")
+                    except Exception as ocr_error:
+                        self.logger.error(f"OCR processing failed: {ocr_error}")
+                
+                # Final fallback to search if OCR also failed
+                if not extracted_text:
+                    self.logger.warning(f"Both pypdf and OCR failed, falling back to search method for: {book_title}")
+                    return self.generate_summary_from_search(book_title, author)
+
             
             # Create prompt for summary generation with extracted text
             prompt = f"""請直接用繁體中文為這本書「{book_title}」生成 300 字的摘要，包含主要內容和重點。
@@ -470,18 +597,28 @@ class GeminiProcessor:
             
             processing_method = None
             summary = None
+            author = book_info.get('author', '')
             
             if total_file_size > threshold_bytes:
-                # Use Google Search method for large files
-                processing_method = 'google_search'
-                author = book_info.get('author', '')
-                self.logger.info(f"Total PDF size ({total_file_size / (1024*1024):.2f} MB) > 30MB, using Google Search method")
-                summary = self.generate_summary_from_search(book_title, author)
+                # Large file: Try OCR first (OCR samples pages, so file size doesn't matter)
+                # Only fall back to Google Search if OCR fails
+                self.logger.info(f"Total PDF size ({total_file_size / (1024*1024):.2f} MB) > 30MB, attempting OCR (samples pages)")
+                
+                try:
+                    # Try OCR for large files (pypdf text extraction may be slow for large files)
+                    summary = self.generate_summary_from_pdf(pdf_paths[0], book_title, author)
+                    if summary:
+                        processing_method = 'pdf_extract'  # Actually used PDF/OCR
+                    else:
+                        raise Exception("PDF/OCR returned empty summary")
+                except Exception as pdf_error:
+                    self.logger.warning(f"PDF/OCR failed for large file, falling back to Google Search: {pdf_error}")
+                    processing_method = 'google_search'
+                    summary = self.generate_summary_from_search(book_title, author)
             else:
                 # Use PDF extraction method for small files
                 # For multiple PDFs, process the first one (usually contains main content)
                 processing_method = 'pdf_extract'
-                author = book_info.get('author', '')
                 self.logger.info(f"Total PDF size ({total_file_size / (1024*1024):.2f} MB) <= 30MB, using PDF extraction method")
                 self.logger.info(f"Processing first PDF of {len(pdf_paths)} files: {pdf_paths[0]}")
                 summary = self.generate_summary_from_pdf(pdf_paths[0], book_title, author)

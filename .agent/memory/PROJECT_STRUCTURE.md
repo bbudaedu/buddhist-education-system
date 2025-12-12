@@ -22,25 +22,6 @@ buddhist-education-system/
 ├── .kiro/                          # Kiro IDE configuration
 │   ├── specs/                      # Feature specifications
 │   └── steering/                   # Development guidelines
-│
-├── ebook/                          # Python Ebook Summary System
-│   ├── *.py                        # Core Python modules
-│   ├── requirements.txt            # Python dependencies
-│   ├── config_template.json        # Configuration template
-│   ├── chromedriver-win64/         # ChromeDriver binaries
-│   └── README.md                   # Detailed documentation
-│
-├── Line-bot-llm-mysql/            # TypeScript LINE Bot
-│   ├── src/                        # TypeScript source code
-│   │   ├── handlers/               # Request handlers
-│   │   ├── services/               # Business logic
-│   │   └── types/                  # Type definitions
-│   ├── migrations/                 # Database migrations
-│   ├── package.json                # NPM configuration
-│   ├── tsconfig.json               # TypeScript config
-│   └── README.md                   # Detailed documentation
-│
-├── docs/                           # Additional documentation
 ├── README.md                       # Main project README
 ├── QUICK_START.md                  # Quick start guide
 └── .gitignore                      # Git ignore rules

@@ -142,12 +142,14 @@ class BookScraper:
         
         return False
     
-    def wait_for_page_load(self, timeout=15):
+    def wait_for_page_load(self, timeout=15, min_books=20):
         """
         Wait for dynamic content to load (up to specified timeout)
+        Enhanced to load more books by scrolling
         
         Args:
             timeout (int): Maximum wait time in seconds (default: 15)
+            min_books (int): Minimum number of books to load (default: 20)
             
         Returns:
             bool: True if page loaded successfully, False if timeout
@@ -174,6 +176,10 @@ class BookScraper:
                 
                 # Additional sleep to ensure all dynamic content is loaded (Vue.js SPA)
                 time.sleep(8)  # Increased wait time for Vue.js rendering
+                
+                # Scroll to load more books if needed
+                self._scroll_to_load_more_books(min_books)
+                
                 return True
                 
             except TimeoutException:
@@ -210,12 +216,104 @@ class BookScraper:
             self.logger.error(f"等待頁面載入時發生錯誤: {e}")
             return False
     
-    def find_new_books(self, baseline_title):
+    def _scroll_to_load_more_books(self, min_books=20, max_pages=3):
+        """
+        Navigate through pagination to collect more books
+        
+        Args:
+            min_books (int): Minimum number of books to load (default: 20)
+            max_pages (int): Maximum number of pages to navigate (default: 3)
+        """
+        try:
+            self.logger.info(f"嘗試載入至少 {min_books} 本書籍 (最多瀏覽 {max_pages} 頁)...")
+            
+            # Store all book cards from all pages
+            all_book_cards_info = []
+            
+            # Get books from page 1 (current page)
+            book_cards = self.driver.find_elements(By.CSS_SELECTOR, ".card.overflow-hidden, .card")
+            current_count = len(book_cards)
+            self.logger.info(f"第 1 頁載入 {current_count} 本書籍")
+            
+            if current_count >= min_books:
+                self.logger.info(f"第 1 頁已有足夠書籍: {current_count} 本")
+                return
+            
+            # Navigate to additional pages if needed
+            for page_num in range(2, max_pages + 1):
+                try:
+                    # Find pagination element and click next page
+                    # Look for page number buttons
+                    pagination_selectors = [
+                        f"//a[contains(@class,'page') and text()='{page_num}']",
+                        f"//button[text()='{page_num}']",
+                        f"//li[contains(@class,'page')]/a[text()='{page_num}']",
+                        f"//span[text()='{page_num}']/parent::*",
+                        f"//*[contains(@class,'pagination')]//*[text()='{page_num}']"
+                    ]
+                    
+                    page_btn = None
+                    for selector in pagination_selectors:
+                        try:
+                            page_btn = self.driver.find_element(By.XPATH, selector)
+                            if page_btn:
+                                break
+                        except NoSuchElementException:
+                            continue
+                    
+                    if not page_btn:
+                        self.logger.info(f"找不到第 {page_num} 頁按鈕，停止分頁導航")
+                        break
+                    
+                    # Click the page button
+                    self.driver.execute_script("arguments[0].click();", page_btn)
+                    self.logger.info(f"點擊第 {page_num} 頁")
+                    time.sleep(3)  # Wait for page content to load
+                    
+                    # Count books on this page
+                    new_book_cards = self.driver.find_elements(By.CSS_SELECTOR, ".card.overflow-hidden, .card")
+                    self.logger.info(f"第 {page_num} 頁載入 {len(new_book_cards)} 本書籍")
+                    
+                except NoSuchElementException:
+                    self.logger.info(f"找不到第 {page_num} 頁，可能已到最後一頁")
+                    break
+                except Exception as e:
+                    self.logger.warning(f"導航到第 {page_num} 頁時發生錯誤: {e}")
+                    break
+            
+            # Navigate back to page 1
+            try:
+                page1_selectors = [
+                    "//a[contains(@class,'page') and text()='1']",
+                    "//button[text()='1']",
+                    "//li[contains(@class,'page')]/a[text()='1']",
+                    "//*[contains(@class,'pagination')]//*[text()='1']"
+                ]
+                
+                for selector in page1_selectors:
+                    try:
+                        page1_btn = self.driver.find_element(By.XPATH, selector)
+                        if page1_btn:
+                            self.driver.execute_script("arguments[0].click();", page1_btn)
+                            self.logger.info("已返回第 1 頁")
+                            time.sleep(3)
+                            break
+                    except NoSuchElementException:
+                        continue
+            except Exception as e:
+                self.logger.warning(f"返回第 1 頁時發生錯誤: {e}")
+            
+        except Exception as e:
+            self.logger.warning(f"分頁導航時發生錯誤: {e}")
+    
+    def find_new_books(self, baseline_title, max_pages=3):
         """
         Identify new books by finding all book cards before the baseline book
+        Supports multi-page search - will navigate through pages until baseline is found
         
         Args:
             baseline_title (str): Title or partial title of the baseline book
+            max_pages (int): Maximum number of pages to search (default: 3)
             
         Returns:
             list: List of book card elements representing new books
@@ -225,85 +323,82 @@ class BookScraper:
                 self.logger.error("WebDriver 未初始化")
                 return []
             
-            # Try multiple selectors to locate book card elements
-            book_cards = []
-            selectors_to_try = [
-                ".card.overflow-hidden",  # 實際的書籍卡片選擇器
-                ".card",                   # 通用卡片選擇器
-                "[class*='card']",         # 包含 card 的任何元素
-                ".book-card",              # 舊版選擇器（備用）
-                ".book-item",
-                ".item"
-            ]
+            all_new_books = []
+            baseline_found = False
+            current_page = 1
             
-            for selector in selectors_to_try:
-                book_cards = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                if book_cards:
-                    self.logger.info(f"使用選擇器 '{selector}' 找到 {len(book_cards)} 個書籍卡片")
-                    break
-            
-            if len(book_cards) == 0:
-                self.logger.warning("未找到任何書籍卡片")
-                # Debug: Log page source snippet
-                try:
-                    page_source = self.driver.page_source
-                    self.logger.debug(f"頁面原始碼片段 (前500字符): {page_source[:500]}")
-                except Exception as e:
-                    self.logger.warning(f"無法獲取頁面原始碼: {e}")
-                return []
-            
-            # Find baseline book by title matching
-            baseline_index = -1
-            for i, card in enumerate(book_cards):
-                try:
-                    card_text = card.text
-                    if baseline_title in card_text:
-                        baseline_index = i
-                        self.logger.info(f"找到基準書籍 (索引 {i}): {baseline_title}")
-                        self.logger.debug(f"基準書籍內容: {card_text[:100]}...")
-                        break
-                except Exception as e:
-                    self.logger.warning(f"讀取卡片 {i} 內容時發生錯誤: {e}")
-                    continue
-            
-            if baseline_index == -1:
-                self.logger.error(f"未找到包含基準書名的書籍: {baseline_title}")
+            while current_page <= max_pages and not baseline_found:
+                self.logger.info(f"=== 搜尋第 {current_page} 頁 ===")
                 
-                # Debug: Log all book titles found on the page
-                self.logger.info("=== 調試資訊：網站上找到的所有書籍 ===")
+                # Get book cards on current page
+                book_cards = self._get_book_cards_on_page()
+                
+                if len(book_cards) == 0:
+                    self.logger.warning(f"第 {current_page} 頁未找到任何書籍卡片")
+                    break
+                
+                self.logger.info(f"第 {current_page} 頁找到 {len(book_cards)} 個書籍卡片")
+                
+                # Search for baseline book on this page
+                baseline_index = -1
                 for i, card in enumerate(book_cards):
                     try:
-                        # Try to extract title from h5 tag
-                        title_elem = card.find_element(By.TAG_NAME, "h5")
+                        card_text = card.text
+                        if baseline_title in card_text:
+                            baseline_index = i
+                            self.logger.info(f"找到基準書籍 (第 {current_page} 頁, 索引 {i}): {baseline_title}")
+                            baseline_found = True
+                            break
+                    except Exception as e:
+                        self.logger.warning(f"讀取卡片 {i} 內容時發生錯誤: {e}")
+                        continue
+                
+                if baseline_found:
+                    # Add books before baseline on this page
+                    new_books_on_page = book_cards[:baseline_index]
+                    all_new_books.extend(new_books_on_page)
+                    self.logger.info(f"第 {current_page} 頁新增 {len(new_books_on_page)} 本新書")
+                else:
+                    # Baseline not on this page, all books are new
+                    all_new_books.extend(book_cards)
+                    self.logger.info(f"基準書籍不在第 {current_page} 頁，新增全部 {len(book_cards)} 本書籍")
+                    
+                    # Navigate to next page
+                    if current_page < max_pages:
+                        if not self._navigate_to_page(current_page + 1):
+                            self.logger.info("無法導航到下一頁，停止搜尋")
+                            break
+                
+                current_page += 1
+            
+            if not baseline_found:
+                self.logger.warning(f"在前 {max_pages} 頁中未找到基準書籍: {baseline_title}")
+                self.logger.info("=== 調試資訊：已收集的所有書籍 ===")
+                for i, book in enumerate(all_new_books[:20]):  # Show first 20
+                    try:
+                        title_elem = book.find_element(By.TAG_NAME, "h5")
                         title = title_elem.text.strip()
                         self.logger.info(f"書籍 {i+1}: {title}")
-                    except Exception as e:
-                        # If h5 not found, try to get first few lines of card text
-                        try:
-                            card_text = card.text.strip()
-                            first_line = card_text.split('\n')[0] if card_text else "無法讀取"
-                            self.logger.info(f"書籍 {i+1}: {first_line} (從卡片文字提取)")
-                        except Exception as e2:
-                            self.logger.warning(f"書籍 {i+1}: 無法讀取標題 - {e2}")
+                    except:
+                        pass
                 self.logger.info("=== 調試資訊結束 ===")
-                
-                return []
             
-            # Extract books appearing before baseline
-            new_books = book_cards[:baseline_index]
-            self.logger.info(f"識別出 {len(new_books)} 本新書")
+            # Navigate back to page 1 for processing
+            if current_page > 1:
+                self._navigate_to_page(1)
             
-            # Log information about new books for debugging
-            for i, book in enumerate(new_books):
+            self.logger.info(f"共識別出 {len(all_new_books)} 本新書")
+            
+            # Log all new book titles
+            for i, book in enumerate(all_new_books):
                 try:
-                    # Extract title from h5 tag within card
                     title_elem = book.find_element(By.TAG_NAME, "h5")
                     title = title_elem.text
                     self.logger.info(f"新書 {i+1}: {title}")
                 except Exception as e:
                     self.logger.warning(f"無法提取新書 {i+1} 的標題: {e}")
             
-            return new_books
+            return all_new_books
             
         except NoSuchElementException as e:
             self.logger.error(f"找不到書籍卡片元素: {e}")
@@ -311,6 +406,69 @@ class BookScraper:
         except Exception as e:
             self.logger.error(f"識別新書時發生錯誤: {e}")
             return []
+    
+    def _get_book_cards_on_page(self):
+        """Get all book card elements on the current page"""
+        selectors_to_try = [
+            ".card.overflow-hidden",
+            ".card",
+            "[class*='card']",
+            ".book-card",
+            ".book-item"
+        ]
+        
+        for selector in selectors_to_try:
+            book_cards = self.driver.find_elements(By.CSS_SELECTOR, selector)
+            if book_cards:
+                return book_cards
+        return []
+    
+    def _navigate_to_page(self, page_num):
+        """
+        Navigate to a specific page number
+        
+        Args:
+            page_num (int): Page number to navigate to
+            
+        Returns:
+            bool: True if navigation successful, False otherwise
+        """
+        try:
+            # Wait a moment before looking for pagination
+            time.sleep(1)
+            
+            pagination_selectors = [
+                f"//a[text()='{page_num}']",
+                f"//button[text()='{page_num}']",
+                f"//li/a[text()='{page_num}']",
+                f"//span[text()='{page_num}']/parent::a",
+                f"//span[text()='{page_num}']/parent::button",
+                f"//*[contains(@class,'pagination')]//*[text()='{page_num}']",
+                f"//*[contains(@class,'page-link') and text()='{page_num}']"
+            ]
+            
+            for selector in pagination_selectors:
+                try:
+                    page_btn = self.driver.find_element(By.XPATH, selector)
+                    if page_btn:
+                        # Scroll to pagination area
+                        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", page_btn)
+                        time.sleep(0.5)
+                        
+                        # Click the page button
+                        self.driver.execute_script("arguments[0].click();", page_btn)
+                        self.logger.info(f"點擊第 {page_num} 頁")
+                        time.sleep(3)  # Wait for page content to load
+                        return True
+                except NoSuchElementException:
+                    continue
+            
+            self.logger.info(f"找不到第 {page_num} 頁按鈕")
+            return False
+            
+        except Exception as e:
+            self.logger.warning(f"導航到第 {page_num} 頁時發生錯誤: {e}")
+            return False
     
     def get_book_title(self, book_card):
         """
