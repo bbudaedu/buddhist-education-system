@@ -10,6 +10,7 @@ import { flexMessageService } from '../services/flexMessageService';
 import { dharmaMediaHandler } from './dharmaMediaHandler';
 import { ErrorHandler, ErrorContext } from './errorHandler';
 import { systemSettingsService } from '../services/systemSettingsService';
+import { matchQuickCommand, getCommandDisplayName } from '../services/fuzzyCommandService';
 
 /**
  * Webhook Handler for LINE Bot
@@ -151,34 +152,30 @@ export class WebhookHandler {
         }
       }
 
-      // 檢查是否為「最新消息」指令
-      if (userMessage.trim() === '最新消息') {
-        await this.handleBulletinsCommand(replyToken);
-        return;
-      }
-
-      // 檢查是否為「停課通知」指令
-      if (userMessage.trim() === '停課通知') {
-        await this.handleCancellationsCommand(replyToken);
-        return;
-      }
-
-      // 檢查是否為「最新法寶」指令
-      const normalizedMessage = userMessage.trim();
-      if (normalizedMessage === '最新法寶' || normalizedMessage === '最新書籍') {
-        await dharmaMediaHandler.handleLatestBooksCommand(replyToken);
-        return;
-      }
-
-      // 檢查是否為「最新影音」或「最新課程」指令
-      if (normalizedMessage === '最新影音' || normalizedMessage === '最新課程') {
-        await dharmaMediaHandler.handleLatestVideosCommand(replyToken);
-        return;
-      }
-
-      // 檢查是否為訂閱相關指令
+      // 優先檢查訂閱相關指令（在模糊匹配之前，避免「訂閱影音通知」被「影音」誤觸發）
       if (await this.handleSubscriptionCommand(userMessage, replyToken, userId)) {
         return; // 如果是訂閱指令，直接返回
+      }
+
+      // 檢查是否為快捷指令（支援模糊匹配）
+      const quickCommand = matchQuickCommand(userMessage);
+      if (quickCommand) {
+        console.log(`Matched quick command: ${getCommandDisplayName(quickCommand)} (type: ${quickCommand})`);
+
+        switch (quickCommand) {
+          case 'bulletins':
+            await this.handleBulletinsCommand(replyToken);
+            return;
+          case 'cancellations':
+            await this.handleCancellationsCommand(replyToken);
+            return;
+          case 'latestBooks':
+            await dharmaMediaHandler.handleLatestBooksCommand(replyToken);
+            return;
+          case 'latestVideos':
+            await dharmaMediaHandler.handleLatestVideosCommand(replyToken);
+            return;
+        }
       }
 
       // 檢查 LLM 是否啟用，若關閉則靜默不回應

@@ -8,10 +8,12 @@ npm-debug.log*
 .env.*.local
 
 # Development files
-src
-*.ts
-!src/**/*.js
-tsconfig.json
+# Development files
+# src
+# *.ts
+# !src/**/*.js
+# tsconfig.json
+jest.config.js
 jest.config.js
 
 # Test files

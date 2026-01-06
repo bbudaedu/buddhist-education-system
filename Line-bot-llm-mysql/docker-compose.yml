@@ -9,14 +9,14 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - SCHEDULER_ENABLED=false  # Disable scheduler in web service
+      - SCHEDULER_ENABLED=false # Disable scheduler in web service
     env_file:
       - .env
-    depends_on:
-      - mysql
+    # depends_on:
+    #   - mysql
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      test: [ "CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -26,34 +26,36 @@ services:
   line-bot-scheduler:
     build: .
     container_name: line-bot-scheduler
+    user: root # Required for write access to mounted ebook directory
     environment:
       - NODE_ENV=production
       - SCHEDULER_ENABLED=true
+      - CHROMEDRIVER_PATH=/usr/bin/chromedriver
+      - DOWNLOAD_DIR=/app/ebook/downloads
     env_file:
       - .env
-    depends_on:
-      - mysql
+    # depends_on:
+    #   - mysql
     restart: unless-stopped
-    command: ["npm", "run", "scheduler:start"]
+    command: [ "node", "dist/scripts/scheduler.js" ]
     volumes:
-      - ../ebook:/app/ebook:ro  # Mount ebook directory for integration
-
-  # MySQL Database
-  mysql:
-    image: mysql:8.0
-    container_name: line-bot-mysql
-    environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-      - ./migrations:/docker-entrypoint-initdb.d:ro
-    restart: unless-stopped
-    command: --default-authentication-plugin=mysql_native_password
+      - ../ebook:/app/ebook # Mount ebook directory for integration
+  # MySQL Database (Disabled: Using external DB at 124.219.37.161)
+  # mysql:
+  #   image: mysql:8.0
+  #   container_name: line-bot-mysql
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+  #     MYSQL_DATABASE: ${DB_NAME}
+  #     MYSQL_USER: ${DB_USER}
+  #     MYSQL_PASSWORD: ${DB_PASSWORD}
+  #   ports:
+  #     - "3306:3306"
+  #   volumes:
+  #     - mysql_data:/var/lib/mysql
+  #     - ./migrations:/docker-entrypoint-initdb.d:ro
+  #   restart: unless-stopped
+  #   command: --default-authentication-plugin=mysql_native_password
 
 volumes:
   mysql_data:

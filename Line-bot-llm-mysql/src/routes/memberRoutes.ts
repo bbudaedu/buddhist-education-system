@@ -6,6 +6,7 @@
 import { Router, Request, Response } from 'express';
 import { memberService } from '../services/memberService';
 import { UpdatePreferencesRequest, SendVerificationRequest, VerifyEmailRequest } from '../types/member';
+import { notificationChannelsConfig } from '../config/index';
 
 const router = Router();
 
@@ -233,6 +234,21 @@ router.post('/verify-email', async (req: Request, res: Response): Promise<void> 
         console.error('Verify email error:', error);
         res.status(500).json({ error: '驗證失敗' });
     }
+});
+
+/**
+ * GET /api/member/notification-channels
+ * 返回可用的通知管道列表（公開 API，不需認證）
+ * 用於學員中心動態顯示/隱藏通知選項
+ */
+router.get('/notification-channels', (_req: Request, res: Response): void => {
+    res.json({
+        channels: {
+            line: notificationChannelsConfig.lineEnabled,
+            email: notificationChannelsConfig.emailEnabled,
+            webpush: notificationChannelsConfig.webpushEnabled
+        }
+    });
 });
 
 export default router;

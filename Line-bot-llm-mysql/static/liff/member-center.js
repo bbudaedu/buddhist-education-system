@@ -52,6 +52,7 @@ async function initializeLiff() {
 
         await loadUserProfile();
         await loadUserPreferences();
+        await loadNotificationChannels();
 
         showMainContent();
     } catch (error) {
@@ -104,6 +105,42 @@ async function loadUserPreferences() {
         }
     } catch (error) {
         console.error('Failed to load preferences:', error);
+    }
+}
+
+/**
+ * 載入可用的通知管道配置
+ * 根據後端配置動態顯示/隱藏通知選項
+ */
+async function loadNotificationChannels() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/notification-channels`);
+
+        if (response.ok) {
+            const data = await response.json();
+            const channels = data.channels;
+
+            // 根據配置顯示/隱藏選項
+            if (channels.line) {
+                document.getElementById('channel-line-wrapper')?.classList.remove('hidden');
+            }
+            if (channels.email) {
+                document.getElementById('channel-email-wrapper')?.classList.remove('hidden');
+            }
+            if (channels.webpush) {
+                document.getElementById('channel-webpush-wrapper')?.classList.remove('hidden');
+            }
+
+            console.log('Notification channels loaded:', channels);
+        } else {
+            // API 失敗時預設顯示 Email 選項
+            document.getElementById('channel-email-wrapper')?.classList.remove('hidden');
+            console.warn('Failed to load notification channels, showing email as default');
+        }
+    } catch (error) {
+        console.error('Failed to load notification channels:', error);
+        // 錯誤時預設顯示 Email 選項
+        document.getElementById('channel-email-wrapper')?.classList.remove('hidden');
     }
 }
 

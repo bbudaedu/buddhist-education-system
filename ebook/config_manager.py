@@ -64,6 +64,15 @@ class ConfigManager:
             self.logger.info(f"配置已載入: {self.config_path}")
             self.logger.debug(f"當前 baseline_book_title: {self.config.get('baseline_book_title', 'Not set')}")
             
+            # Allow environment variables to override config
+            if os.environ.get('CHROMEDRIVER_PATH'):
+                self.config['chromedriver_path'] = os.environ.get('CHROMEDRIVER_PATH')
+                self.logger.info(f"使用環境變數覆寫 chromedriver_path: {self.config['chromedriver_path']}")
+                
+            if os.environ.get('DOWNLOAD_DIR'):
+                self.config['download_dir'] = os.environ.get('DOWNLOAD_DIR')
+                self.logger.info(f"使用環境變數覆寫 download_dir: {self.config['download_dir']}")
+            
             return self.config
             
         except FileNotFoundError:

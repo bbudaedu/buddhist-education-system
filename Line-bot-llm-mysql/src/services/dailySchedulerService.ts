@@ -1,7 +1,7 @@
 import { CronJob } from 'cron';
 import { spawn, ChildProcess } from 'child_process';
 import path from 'path';
-import { schedulerConfig, SchedulerConfig as ConfigSchedulerConfig } from '../config/index';
+import { schedulerConfig, newBookSchedulerConfig, SchedulerConfig as ConfigSchedulerConfig, NewBookSchedulerConfig, notificationChannelsConfig } from '../config/index';
 import { EbookIntegrationService, defaultFileMonitorConfig, ProcessedBookData } from './ebookIntegrationService';
 import { errorRecoveryService } from './errorRecoveryService';
 
@@ -25,20 +25,25 @@ export interface ProcessingResult {
 export class DailySchedulerService {
   private cronJob: CronJob | null = null;
   private retryCronJob: CronJob | null = null;
+  private newBookCronJob: CronJob | null = null;  // 新書排程
   private isProcessing = false;
+  private isNewBookProcessing = false;  // 新書處理狀態
   private retryCount = 0;
   private currentProcess: ChildProcess | null = null;
+  private newBookProcess: ChildProcess | null = null;  // 新書處理程序
   private integrationService: EbookIntegrationService;
+  private newBookConfig: NewBookSchedulerConfig;
 
   constructor(private config: SchedulerConfig = schedulerConfig) {
     this.validateConfig();
-    
+    this.newBookConfig = newBookSchedulerConfig;
+
     // 初始化整合服務
     const integrationConfig = {
       ...defaultFileMonitorConfig,
       watchDirectory: this.config.outputDataPath
     };
-    
+
     this.integrationService = new EbookIntegrationService(integrationConfig);
     this.setupIntegrationEventHandlers();
   }
@@ -67,7 +72,7 @@ export class DailySchedulerService {
     this.integrationService.on('books-processed', async (data: ProcessedBookData, filePath: string) => {
       console.log(`📚 Received processed books from: ${path.basename(filePath)}`);
       console.log(`📊 Books processed: ${data.successfullyProcessed.length}`);
-      
+
       try {
         await this.triggerNotifications(data);
         console.log('✅ Notifications triggered successfully');
@@ -130,6 +135,166 @@ export class DailySchedulerService {
 
     // 設置重試處理排程 - 每小時執行一次
     this.setupRetryScheduler();
+
+    // 設置新書排程
+    await this.setupNewBookScheduler();
+  }
+
+  /**
+   * 設置新書排程器
+   */
+  private async setupNewBookScheduler(): Promise<void> {
+    if (!this.newBookConfig.enabled) {
+      console.log('📖 New book scheduler is disabled');
+      return;
+    }
+
+    console.log(`📖 Setting up new book scheduler: ${this.newBookConfig.cronExpression}`);
+
+    this.newBookCronJob = new CronJob(
+      this.newBookConfig.cronExpression,
+      this.executeNewBookCheck.bind(this),
+      null, // onComplete callback
+      true, // start immediately
+      this.config.timeZone,
+      null, // context
+      false, // runOnInit
+      undefined, // utcOffset
+      false, // unrefTimeout
+      true, // waitForCompletion
+      (error: unknown) => this.handleCronError(error as Error), // errorHandler
+      'NewBookChecker' // job name
+    );
+
+    console.log(`✅ New book scheduler started successfully`);
+    console.log(`⏰ Next new book check: ${this.newBookCronJob.nextDate().toISO()}`);
+  }
+
+  /**
+   * 執行新書檢查工作流程
+   */
+  private async executeNewBookCheck(): Promise<void> {
+    if (this.isNewBookProcessing) {
+      console.log('⚠️ New book processing is already in progress, skipping');
+      return;
+    }
+
+    this.isNewBookProcessing = true;
+    const startTime = Date.now();
+
+    try {
+      console.log('📚 Starting new book check workflow...');
+      const result = await this.triggerNewBookCheck();
+
+      if (result.success) {
+        console.log(`✅ New book check completed in ${result.processingTime}ms`);
+        if (result.booksProcessed > 0) {
+          console.log(`🎉 Found and processed ${result.booksProcessed} new books!`);
+        } else {
+          console.log('✔️ No new books found');
+        }
+      } else {
+        console.error(`❌ New book check failed: ${result.errorMessage}`);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('💥 Unexpected error during new book check:', errorMessage);
+    } finally {
+      this.isNewBookProcessing = false;
+      console.log(`⏱️ New book check execution time: ${Date.now() - startTime}ms`);
+    }
+  }
+
+  /**
+   * 觸發新書檢查 Python 腳本
+   */
+  public async triggerNewBookCheck(): Promise<ProcessingResult> {
+    return new Promise((resolve) => {
+      const startTime = Date.now();
+      const scriptPath = path.resolve(path.dirname(this.config.ebookProcessorPath), 'run_newbook_scheduler.py');
+
+      console.log(`🐍 Executing new book scheduler: ${scriptPath}`);
+
+      const args = this.newBookConfig.checkOnly ? ['--check-only'] : [];
+      args.push('--verbose');
+
+      this.newBookProcess = spawn(this.config.pythonExecutable, [scriptPath, ...args], {
+        cwd: path.dirname(this.config.ebookProcessorPath),
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: {
+          ...process.env,
+          PYTHONIOENCODING: 'utf-8'
+        },
+        timeout: this.newBookConfig.timeoutMs
+      });
+
+      let stdout = '';
+      let stderr = '';
+      let jsonOutput = '';
+
+      this.newBookProcess.stdout?.on('data', (data) => {
+        const output = data.toString();
+        stdout += output;
+
+        // 擷取 JSON 輸出
+        if (output.includes('--- JSON OUTPUT ---')) {
+          jsonOutput = '';
+        } else if (jsonOutput !== undefined && output.trim()) {
+          jsonOutput += output;
+        }
+
+        console.log(`📝 NewBook: ${output.trim()}`);
+      });
+
+      this.newBookProcess.stderr?.on('data', (data) => {
+        const error = data.toString();
+        stderr += error;
+        console.error(`🚨 NewBook error: ${error.trim()}`);
+      });
+
+      this.newBookProcess.on('close', (code) => {
+        this.newBookProcess = null;
+        const processingTime = Date.now() - startTime;
+
+        if (code === 0) {
+          // 嘗試解析 JSON 輸出
+          let booksProcessed = 0;
+          try {
+            // 從 stdout 中找到 JSON 輸出
+            const jsonMatch = stdout.match(/--- JSON OUTPUT ---\s*([\s\S]*?)$/m);
+            if (jsonMatch && jsonMatch[1]) {
+              const result = JSON.parse(jsonMatch[1].trim());
+              booksProcessed = result.new_books_count || 0;
+            }
+          } catch (e) {
+            // JSON 解析失敗不是致命錯誤
+          }
+
+          resolve({
+            success: true,
+            processingTime,
+            booksProcessed
+          });
+        } else {
+          resolve({
+            success: false,
+            processingTime,
+            booksProcessed: 0,
+            errorMessage: `Process exited with code ${code}. stderr: ${stderr}`
+          });
+        }
+      });
+
+      this.newBookProcess.on('error', (error) => {
+        this.newBookProcess = null;
+        resolve({
+          success: false,
+          processingTime: Date.now() - startTime,
+          booksProcessed: 0,
+          errorMessage: `Failed to start process: ${error.message}`
+        });
+      });
+    });
   }
 
   /**
@@ -186,6 +351,19 @@ export class DailySchedulerService {
       this.currentProcess = null;
       console.log('🛑 Current ebook processing terminated');
     }
+
+    // 停止新書排程
+    if (this.newBookCronJob) {
+      this.newBookCronJob.stop();
+      this.newBookCronJob = null;
+      console.log('🛑 New book scheduler stopped');
+    }
+
+    if (this.newBookProcess) {
+      this.newBookProcess.kill('SIGTERM');
+      this.newBookProcess = null;
+      console.log('🛑 New book processing terminated');
+    }
   }
 
   /**
@@ -202,29 +380,29 @@ export class DailySchedulerService {
 
     try {
       console.log('🚀 Starting daily ebook processing workflow...');
-      
+
       const result = await this.triggerPythonEbookProcessor();
-      
+
       if (result.success) {
         console.log(`✅ Ebook processing completed successfully in ${result.processingTime}ms`);
         console.log(`📚 Books processed: ${result.booksProcessed}`);
-        
+
         // 重置重試計數器
         this.retryCount = 0;
-        
+
         // 檔案監控服務會自動處理輸出檔案並觸發通知
         console.log('📁 Waiting for file monitoring service to detect output file...');
-        
+
       } else {
         console.error(`❌ Ebook processing failed: ${result.errorMessage}`);
         await this.handleProcessingFailure(result.errorMessage || 'Unknown error');
       }
-      
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('💥 Unexpected error during ebook workflow:', errorMessage);
       await this.handleProcessingFailure(errorMessage);
-      
+
     } finally {
       this.isProcessing = false;
       const totalTime = Date.now() - startTime;
@@ -238,15 +416,15 @@ export class DailySchedulerService {
   private async triggerPythonEbookProcessor(): Promise<ProcessingResult> {
     return new Promise((resolve) => {
       const startTime = Date.now();
-      
+
       // 使用 UTF-8 批次檔案來執行每日監控（包含所有爬蟲）
       const batchFilePath = path.join(path.dirname(this.config.ebookProcessorPath), 'run_daily_monitoring_utf8.bat');
-      
+
       console.log(`🐍 Executing Python daily monitoring (all scrapers): ${batchFilePath}`);
-      
+
       // 執行批次檔案（Windows）或直接執行 Python（其他系統）
       const isWindows = process.platform === 'win32';
-      
+
       if (isWindows) {
         // Windows: 使用批次檔案
         this.currentProcess = spawn('cmd', ['/c', batchFilePath], {
@@ -292,7 +470,7 @@ export class DailySchedulerService {
       this.currentProcess.on('close', async (code) => {
         this.currentProcess = null;
         const processingTime = Date.now() - startTime;
-        
+
         if (code === 0) {
           // 處理成功，檔案監控服務會自動處理輸出
           resolve({
@@ -313,7 +491,7 @@ export class DailySchedulerService {
       this.currentProcess.on('error', (error) => {
         this.currentProcess = null;
         const processingTime = Date.now() - startTime;
-        
+
         resolve({
           success: false,
           processingTime,
@@ -332,22 +510,38 @@ export class DailySchedulerService {
   private async triggerNotifications(processedData: ProcessedBookData): Promise<void> {
     try {
       console.log('📢 Triggering notification delivery...');
-      
+
+      // 🔒 檢查 LINE 通知開關是否啟用
+      if (!notificationChannelsConfig.lineEnabled) {
+        console.log('⚠️ LINE notifications are disabled (NOTIFICATION_LINE_ENABLED=false). Skipping notification delivery.');
+        return;
+      }
+
       // 檢查是否有書籍需要通知
       if (!processedData.successfullyProcessed || processedData.successfullyProcessed.length === 0) {
         console.log('📢 No books to notify, skipping notification delivery');
         return;
       }
-      
+
+      // 🔒 驗證資料日期是否為近期（7天內），避免發送舊資料
+      const processingDate = new Date(processedData.processingDate);
+      const now = new Date();
+      const daysDiff = Math.floor((now.getTime() - processingDate.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (daysDiff > 7) {
+        console.log(`⚠️ Skipping notification: data is too old (${daysDiff} days old, processing date: ${processedData.processingDate})`);
+        return;
+      }
+
       // 動態導入 NotificationService 以避免循環依賴
       const { NotificationService } = await import('./notificationService');
       const notificationService = new NotificationService();
-      
+
       // 發送通知 - 將 ProcessedBookData 轉換為 NotificationService 期望的格式
       await notificationService.processNewBooks(processedData as any);
-      
+
       console.log('✅ Notification delivery completed');
-      
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error(`❌ Failed to trigger notifications: ${errorMessage}`);
@@ -361,15 +555,15 @@ export class DailySchedulerService {
   private async processRetryAttempts(): Promise<void> {
     try {
       console.log('🔄 Starting scheduled retry processing...');
-      
+
       const retryResult = await errorRecoveryService.processRetryableFailures();
-      
+
       if (retryResult.processed > 0) {
         console.log(`🔄 Retry processing completed: ${retryResult.successful} successful, ${retryResult.failed} failed out of ${retryResult.processed} attempts`);
       } else {
         console.log('🔄 No retryable failures found');
       }
-      
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error(`❌ Error during retry processing: ${errorMessage}`);
@@ -382,23 +576,23 @@ export class DailySchedulerService {
    */
   private async handleProcessingFailure(errorMessage: string): Promise<void> {
     this.retryCount++;
-    
+
     if (this.retryCount <= this.config.maxRetries) {
       const delayMs = this.config.retryDelayMinutes * 60 * 1000 * Math.pow(2, this.retryCount - 1); // 指數退避
       const delayMinutes = Math.round(delayMs / 60000);
-      
+
       console.log(`🔄 Scheduling retry ${this.retryCount}/${this.config.maxRetries} in ${delayMinutes} minutes...`);
-      
+
       setTimeout(() => {
         if (!this.isProcessing) { // 確保沒有其他處理正在進行
           this.executeEbookWorkflow();
         }
       }, delayMs);
-      
+
     } else {
       console.error(`💥 Maximum retries (${this.config.maxRetries}) exceeded. Giving up until next scheduled execution.`);
       this.retryCount = 0; // 重置重試計數器，等待下次排程執行
-      
+
       // 可以在這裡添加錯誤通知邏輯，例如發送管理員通知
       await this.notifyAdministrators(errorMessage);
     }
@@ -410,12 +604,12 @@ export class DailySchedulerService {
   private async notifyAdministrators(errorMessage: string): Promise<void> {
     try {
       console.log('📧 Notifying administrators about processing failure...');
-      
+
       // 這裡可以實作發送管理員通知的邏輯
       // 例如：發送 LINE 訊息給管理員、發送 email 等
-      
+
       console.log(`📧 Administrator notification sent: ${errorMessage}`);
-      
+
     } catch (error) {
       console.error('❌ Failed to notify administrators:', error instanceof Error ? error.message : 'Unknown error');
     }
@@ -426,7 +620,7 @@ export class DailySchedulerService {
    */
   private handleCronError(error: Error): void {
     console.error('💥 Cron job error:', error.message);
-    
+
     // 記錄錯誤但不停止排程器
     // 可以在這裡添加錯誤監控邏輯
   }
@@ -441,10 +635,14 @@ export class DailySchedulerService {
     nextRetryExecution?: string;
     retryCount: number;
     retrySchedulerRunning: boolean;
+    newBookSchedulerRunning: boolean;
+    isNewBookProcessing: boolean;
+    nextNewBookCheck?: string;
   } {
     const nextExecution = this.cronJob?.nextDate().toISO();
     const nextRetryExecution = this.retryCronJob?.nextDate().toISO();
-    
+    const nextNewBookCheck = this.newBookCronJob?.nextDate().toISO();
+
     const result: {
       isRunning: boolean;
       isProcessing: boolean;
@@ -452,21 +650,30 @@ export class DailySchedulerService {
       nextRetryExecution?: string;
       retryCount: number;
       retrySchedulerRunning: boolean;
+      newBookSchedulerRunning: boolean;
+      isNewBookProcessing: boolean;
+      nextNewBookCheck?: string;
     } = {
       isRunning: this.cronJob !== null,
       isProcessing: this.isProcessing,
       retryCount: this.retryCount,
-      retrySchedulerRunning: this.retryCronJob !== null
+      retrySchedulerRunning: this.retryCronJob !== null,
+      newBookSchedulerRunning: this.newBookCronJob !== null,
+      isNewBookProcessing: this.isNewBookProcessing
     };
-    
+
     if (nextExecution) {
       result.nextExecution = nextExecution;
     }
-    
+
     if (nextRetryExecution) {
       result.nextRetryExecution = nextRetryExecution;
     }
-    
+
+    if (nextNewBookCheck) {
+      result.nextNewBookCheck = nextNewBookCheck;
+    }
+
     return result;
   }
 
@@ -479,16 +686,16 @@ export class DailySchedulerService {
     }
 
     console.log('🔧 Manual trigger initiated...');
-    
+
     this.isProcessing = true;
     try {
       const result = await this.triggerPythonEbookProcessor();
-      
+
       // 檔案監控服務會自動處理輸出檔案
       if (result.success) {
         console.log('📁 Manual trigger completed, waiting for file monitoring to process output...');
       }
-      
+
       return result;
     } finally {
       this.isProcessing = false;
@@ -550,9 +757,9 @@ export class DailySchedulerService {
   public async processTestData(testData: any): Promise<ProcessingResult> {
     try {
       console.log('🧪 Processing test data for notification...');
-      
+
       const startTime = Date.now();
-      
+
       // 將測試資料轉換為 ProcessedBookData 格式
       const processedData: ProcessedBookData = {
         processingDate: testData.processingDate || new Date().toISOString().split('T')[0],
@@ -565,24 +772,24 @@ export class DailySchedulerService {
           googleSearches: 0
         }
       };
-      
+
       // 直接觸發通知，不經過檔案處理
       await this.triggerNotifications(processedData);
-      
+
       const processingTime = Date.now() - startTime;
-      
+
       console.log('✅ Test data processing completed');
-      
+
       return {
         success: true,
         processingTime,
         booksProcessed: processedData.successfullyProcessed.length
       };
-      
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error(`❌ Test data processing failed: ${errorMessage}`);
-      
+
       return {
         success: false,
         processingTime: 0,

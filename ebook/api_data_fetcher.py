@@ -250,8 +250,9 @@ class BudaeduAPIFetcher:
         
         cancellations = []
         for item in data['data']:
-            course = item.get('course', {})
-            lecturer = course.get('lecturer', {})
+            # 確保 course 和 lecturer 永遠是字典，即使 API 回傳 None
+            course = item.get('course') or {}
+            lecturer = course.get('lecturer') or {}
             
             cancel_date = item.get('cancel_date', '')
             # 格式化日期顯示

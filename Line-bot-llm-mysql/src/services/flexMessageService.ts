@@ -372,6 +372,7 @@ export class FlexMessageService {
       body: {
         type: 'box',
         layout: 'vertical',
+        height: '200px',
         contents: [
           // Top section: horizontal layout with image and basic info
           {
@@ -546,13 +547,15 @@ export class FlexMessageService {
       body: {
         type: 'box',
         layout: 'vertical',
+        height: '240px',
         contents: [
           {
             type: 'image',
             url: card.imageUrl,
-            size: 'full',
+            size: 'lg',
             aspectRatio: '1:1',
-            aspectMode: 'cover',
+            aspectMode: 'fit',
+            backgroundColor: '#f5f5f5',
             action: {
               type: 'uri',
               label: '查看圖片',
@@ -588,15 +591,37 @@ export class FlexMessageService {
         layout: 'vertical',
         spacing: 'sm',
         contents: [
+          // First row: horizontal 2 buttons
           {
-            type: 'button',
-            style: 'primary',
-            action: {
-              type: 'uri',
-              label: '下載圖片',
-              uri: card.imageUrl
-            }
+            type: 'box',
+            layout: 'horizontal',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'button',
+                action: {
+                  type: 'uri',
+                  label: '下載圖片',
+                  uri: card.imageUrl
+                },
+                style: 'primary',
+                height: 'sm',
+                flex: 1
+              },
+              {
+                type: 'button',
+                action: {
+                  type: 'uri',
+                  label: '佛卡申請',
+                  uri: 'https://www.budaedu.org/#/pictures/applicable?openExternalBrowser=1'
+                },
+                style: 'primary',
+                height: 'sm',
+                flex: 1
+              }
+            ]
           },
+          // Second row: More button
           {
             type: 'button',
             action: {
@@ -607,6 +632,7 @@ export class FlexMessageService {
             style: 'link',
             height: 'sm'
           },
+          // Third row: Share button
           {
             type: 'button',
             style: 'link',
@@ -614,7 +640,9 @@ export class FlexMessageService {
               type: 'uri',
               label: '📤 分享給朋友',
               uri: `https://line.me/R/share?text=${encodeURIComponent(`🙏 ${card.title}\n${card.imageUrl}`)}`
-            }
+            },
+            height: 'sm',
+            color: '#17c950'
           }
         ]
       }

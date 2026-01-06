@@ -38,11 +38,11 @@
       "backup_enabled": true,
       "cleanup_old_files_days": 30,
       "excel_enabled": true,
-      "mysql_enabled": false,
+      "mysql_enabled": true,
       "description": "Data synchronization to Excel and MySQL"
     },
     "notifications": {
-      "line_enabled": true,
+      "line_enabled": false,
       "email_enabled": true,
       "immediate_alerts": [
         "cancellation"

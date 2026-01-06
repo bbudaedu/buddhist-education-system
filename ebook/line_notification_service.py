@@ -46,8 +46,24 @@ class LineNotificationService:
         notification_config = monitoring_config.get('notifications', {})
         self.line_enabled = notification_config.get('line_enabled', False)
         
+        # ========== LINE 推送全局開關 (成本控制) ==========
+        # 優先級: 環境變數 > 配置檔 > 預設值 (OFF)
+        # 環境變數: LINE_PUSH_ENABLED=true/false
+        # 配置檔: website_monitoring.notifications.line_push_enabled
+        env_push_enabled = os.environ.get('LINE_PUSH_ENABLED', '').lower()
+        if env_push_enabled in ('true', '1', 'yes', 'on'):
+            self.push_enabled = True
+        elif env_push_enabled in ('false', '0', 'no', 'off'):
+            self.push_enabled = False
+        else:
+            # 從配置檔讀取，預設為 False (關閉)
+            self.push_enabled = notification_config.get('line_push_enabled', False)
+        # ===================================================
+        
         if self.line_enabled and self.enabled:
+            push_status = "✅ ON" if self.push_enabled else "❌ OFF (成本控制)"
             self.logger.info(f"LINE notification service initialized (API: {self.api_url})")
+            self.logger.info(f"LINE 推送功能狀態: {push_status}")
         else:
             self.logger.info("LINE notification service disabled")
     
@@ -56,9 +72,30 @@ class LineNotificationService:
         Check if LINE notifications are enabled
         
         Returns:
-            bool: True if LINE notifications are enabled
+            bool: True if LINE notifications are enabled AND push is enabled
         """
-        return self.enabled and self.line_enabled
+        return self.enabled and self.line_enabled and self.push_enabled
+    
+    def is_push_enabled(self) -> bool:
+        """
+        Check if LINE push notifications are enabled (cost control)
+        
+        Returns:
+            bool: True if push notifications are enabled
+        """
+        return self.push_enabled
+    
+    def set_push_enabled(self, enabled: bool) -> None:
+        """
+        Set LINE push notification status at runtime
+        
+        Args:
+            enabled: True to enable, False to disable
+        """
+        old_status = self.push_enabled
+        self.push_enabled = enabled
+        status = "✅ ON" if enabled else "❌ OFF"
+        self.logger.info(f"LINE 推送功能已切換: {old_status} -> {enabled} ({status})")
     
     def send_broadcast_message(self, message: str, content_type: str = 'news') -> bool:
         """

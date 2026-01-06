@@ -38,6 +38,13 @@ export interface LiffConfig {
   liffUrl?: string;
 }
 
+// 通知管道可用性配置介面
+export interface NotificationChannelsConfig {
+  lineEnabled: boolean;      // LINE 推播是否可用
+  emailEnabled: boolean;     // Email 通知是否可用
+  webpushEnabled: boolean;   // 桌面通知是否可用
+}
+
 // 通知系統配置介面
 export interface NotificationConfig {
   maxRecipientsPerBatch: number;
@@ -61,6 +68,15 @@ export interface SchedulerConfig {
   enabled: boolean;
 }
 
+// 新書排程器配置介面
+export interface NewBookSchedulerConfig {
+  enabled: boolean;
+  cronExpression: string;       // cron 表達式，例如 '0 9 * * *' (每天 09:00)
+  scriptPath: string;           // Python 腳本路徑
+  checkOnly: boolean;           // 是否僅檢查不處理
+  timeoutMs: number;            // 執行超時時間 (毫秒)
+}
+
 // 主配置介面
 export interface Config {
   line: LineConfig;
@@ -68,7 +84,9 @@ export interface Config {
   database: DatabaseConfig;
   server: ServerConfig;
   scheduler: SchedulerConfig;
+  newBookScheduler: NewBookSchedulerConfig;
   notifications: NotificationConfig;
+  notificationChannels: NotificationChannelsConfig;
   liff?: LiffConfig;
 }
 
@@ -212,6 +230,14 @@ function createConfig(): Config {
       outputDataPath: process.env.EBOOK_OUTPUT_PATH || '../ebook/generated_documents',
       enabled: process.env.SCHEDULER_ENABLED !== 'false' // 預設啟用，除非明確設為 false
     },
+    // 新書排程器配置
+    newBookScheduler: {
+      enabled: process.env.NEWBOOK_SCHEDULER_ENABLED !== 'false',  // 預設啟用
+      cronExpression: process.env.NEWBOOK_CRON_EXPRESSION || '0 9 * * *', // 每天 09:00
+      scriptPath: process.env.NEWBOOK_SCRIPT_PATH || '../ebook/run_newbook_scheduler.py',
+      checkOnly: process.env.NEWBOOK_CHECK_ONLY === 'true',  // 預設執行完整處理
+      timeoutMs: parseIntEnv(process.env.NEWBOOK_TIMEOUT_MS, 300000)  // 5 分鐘超時
+    },
     notifications: {
       maxRecipientsPerBatch: parseIntEnv(process.env.NOTIFICATION_MAX_RECIPIENTS_PER_BATCH, 100),
       deliveryTimeoutMs: parseIntEnv(process.env.NOTIFICATION_DELIVERY_TIMEOUT_MS, 30000),
@@ -220,6 +246,12 @@ function createConfig(): Config {
       retryFailedDeliveries: process.env.NOTIFICATION_RETRY_FAILED_DELIVERIES !== 'false',
       maxDeliveryRetries: parseIntEnv(process.env.NOTIFICATION_MAX_DELIVERY_RETRIES, 3),
       deliveryRetryDelayMinutes: parseIntEnv(process.env.NOTIFICATION_DELIVERY_RETRY_DELAY_MINUTES, 15)
+    },
+    // 通知管道可用性配置（控制學員中心顯示哪些選項）
+    notificationChannels: {
+      lineEnabled: process.env.NOTIFICATION_LINE_ENABLED === 'true',       // LINE 推播，預設關閉
+      emailEnabled: process.env.NOTIFICATION_EMAIL_ENABLED !== 'false',    // Email 通知，預設開啟
+      webpushEnabled: process.env.NOTIFICATION_WEBPUSH_ENABLED === 'true'  // 桌面通知，預設關閉
     }
   };
 
@@ -247,7 +279,9 @@ export const geminiConfig = config.gemini;
 export const databaseConfig = config.database;
 export const serverConfig = config.server;
 export const schedulerConfig = config.scheduler;
+export const newBookSchedulerConfig = config.newBookScheduler;
 export const notificationConfig = config.notifications;
+export const notificationChannelsConfig = config.notificationChannels;
 export const liffConfig = config.liff;
 
 // 預設匯出

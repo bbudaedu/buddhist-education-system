@@ -42,6 +42,16 @@ export class BudaeduConnector {
             throw error;
         }
     }
+
+    /**
+     * 發送 HEAD 請求（用於檢查 URL 是否有效）
+     * @param url 請求 URL
+     * @param config Axios 設定 (可選)
+     * @returns Promise<AxiosResponse> 回傳完整 response
+     */
+    async head(url: string, config?: AxiosRequestConfig) {
+        return this.axiosInstance.head(url, config);
+    }
 }
 
 // 匯出單例

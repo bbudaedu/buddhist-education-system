@@ -43,6 +43,7 @@
     },
     "notifications": {
       "line_enabled": false,
+      "line_push_enabled": false,
       "email_enabled": true,
       "immediate_alerts": [
         "cancellation"
@@ -53,7 +54,7 @@
         "media"
       ],
       "cycle_notifications": false,
-      "description": "Notification settings for different content types"
+      "description": "通知設定。可被環境變數覆蓋: NOTIFICATION_LINE_ENABLED, NOTIFICATION_EMAIL_ENABLED, LINE_PUSH_ENABLED。環境變數優先級高於此配置檔。"
     },
     "performance": {
       "max_concurrent_scrapers": 2,

@@ -49,12 +49,16 @@
             </section>
             <section class="card">
                 <h3>📱 通知方式</h3>
-                <div class="checkbox-group">
-                    <label class="checkbox-label"><input type="checkbox" id="channel-line" checked disabled><span>LINE
+                <div class="checkbox-group" id="notification-channels">
+                    <!-- 通知選項由 JavaScript 根據後端配置動態顯示 -->
+                    <label class="checkbox-label hidden" id="channel-line-wrapper"><input type="checkbox"
+                            id="channel-line" checked disabled><span>LINE
                             推播（預設）</span></label>
-                    <label class="checkbox-label"><input type="checkbox" id="channel-email"><span>Email
+                    <label class="checkbox-label hidden" id="channel-email-wrapper"><input type="checkbox"
+                            id="channel-email"><span>Email
                             通知</span></label>
-                    <label class="checkbox-label"><input type="checkbox" id="channel-webpush"><span>桌面通知</span></label>
+                    <label class="checkbox-label hidden" id="channel-webpush-wrapper"><input type="checkbox"
+                            id="channel-webpush"><span>桌面通知</span></label>
                 </div>
             </section>
             <section class="card">

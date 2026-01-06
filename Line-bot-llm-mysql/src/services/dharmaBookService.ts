@@ -49,15 +49,61 @@ export class DharmaBookService {
             .trim();
     }
 
+    // 儲存已驗證的封面圖 URL 格式（code -> 有效的 URL）
+    private coverUrlCache: Map<string, string> = new Map();
+
     /**
-     * 構建封面圖 URL
-     * @param code 書籍代碼（如 "CH382-16"）
-     * @returns 封面圖 URL
+     * 檢查 URL 是否有效（使用 HTTP HEAD 請求）
+     * @param url 要檢查的 URL
+     * @returns Promise<boolean> URL 是否有效
      */
-    private buildCoverImageUrl(code: string): string {
-        if (!code) return 'https://www.budaedu.org/img/logo.png';
-        const cleanCode = code.replace(/-/g, ''); // 移除連字符
-        return `${this.COVER_BASE_URL}${cleanCode}.jpg`;
+    private async checkUrlExists(url: string): Promise<boolean> {
+        try {
+            const response = await budaeduConnector.head(url, { timeout: 3000 });
+            return response.status >= 200 && response.status < 400;
+        } catch {
+            return false;
+        }
+    }
+
+    /**
+     * 取得有效的封面圖 URL（嘗試帶連字符和無連字符兩種格式）
+     * @param code 書籍代碼（如 "CH738-45"）
+     * @returns Promise<string> 有效的封面圖 URL
+     */
+    private async getValidCoverImageUrl(code: string): Promise<string> {
+        const fallbackUrl = 'https://www.budaedu.org/img/logo.png';
+        if (!code) return fallbackUrl;
+
+        // 檢查快取
+        const cachedUrl = this.coverUrlCache.get(code);
+        if (cachedUrl) {
+            return cachedUrl;
+        }
+
+        // 準備兩種格式的 URL
+        const urlWithHyphen = `${this.COVER_BASE_URL}${code}.jpg`; // 帶連字符: CH738-45.jpg
+        const codeWithoutHyphen = code.replace(/-/g, '');
+        const urlWithoutHyphen = `${this.COVER_BASE_URL}${codeWithoutHyphen}.jpg`; // 無連字符: CH73845.jpg
+
+        // 先嘗試帶連字符格式
+        if (await this.checkUrlExists(urlWithHyphen)) {
+            this.coverUrlCache.set(code, urlWithHyphen);
+            console.log(`封面圖有效（帶連字符）: ${urlWithHyphen}`);
+            return urlWithHyphen;
+        }
+
+        // 再嘗試無連字符格式
+        if (await this.checkUrlExists(urlWithoutHyphen)) {
+            this.coverUrlCache.set(code, urlWithoutHyphen);
+            console.log(`封面圖有效（無連字符）: ${urlWithoutHyphen}`);
+            return urlWithoutHyphen;
+        }
+
+        // 兩種都無效，使用預設圖片
+        console.warn(`封面圖兩種格式都無效，使用預設圖片: code=${code}`);
+        this.coverUrlCache.set(code, fallbackUrl);
+        return fallbackUrl;
     }
 
     /**
@@ -122,16 +168,20 @@ export class DharmaBookService {
                 rawBooks = response;
             }
 
-            console.log(`API 回傳 ${rawBooks.length} 筆書籍，開始並行獲取 PDF 連結...`);
+            console.log(`API 回傳 ${rawBooks.length} 筆書籍，開始並行獲取 PDF 連結與封面圖...`);
 
-            // 並行獲取每本書的 PDF URL 和文件大小
+            // 並行獲取每本書的 PDF URL、文件大小和驗證封面圖 URL
             const booksWithFiles = await Promise.all(
                 rawBooks.map(async (item: any) => {
-                    const pdfInfo = await this.getBookPdfUrl(item.id);
+                    const [pdfInfo, coverImageUrl] = await Promise.all([
+                        this.getBookPdfUrl(item.id),
+                        this.getValidCoverImageUrl(item.code)
+                    ]);
                     return {
                         ...item,
                         pdfUrl: pdfInfo.url,
-                        fileSize: pdfInfo.size
+                        fileSize: pdfInfo.size,
+                        validatedCoverUrl: coverImageUrl
                     };
                 })
             );
@@ -151,7 +201,7 @@ export class DharmaBookService {
                     title: item.chinese_name || item.name_zh || item.name || item.title || '無標題',
                     author: item.chinese_author || item.author_name || item.author || '佛陀教育基金會',
                     description: description || '暫無簡介',
-                    coverImageUrl: this.buildCoverImageUrl(item.code),
+                    coverImageUrl: item.validatedCoverUrl, // 使用已驗證的封面圖 URL
                     pdfUrl: item.pdfUrl || '',
                     fileSize: item.fileSize || '',
                     publishDate: (item.latest_storage_date || item.storage_date || item.publish_date || item.created_at || new Date().toISOString().split('T')[0]).split(' ')[0]
