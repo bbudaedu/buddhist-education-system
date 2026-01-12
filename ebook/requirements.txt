@@ -4,6 +4,9 @@
 # Web automation and scraping
 selenium>=4.0.0
 
+# Environment variable loading (for .env file support)
+python-dotenv>=1.0.0
+
 # Google Gemini AI API
 google-generativeai>=0.3.0
 

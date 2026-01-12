@@ -56,11 +56,57 @@ def setup_logging(verbose: bool = False) -> logging.Logger:
 
 
 def load_config(logger: logging.Logger) -> Dict[str, Any]:
-    """Load configuration from config.json"""
-    config_manager = ConfigManager(str(CONFIG_FILE), logger)
-    config = config_manager.load_config()
-    logger.info(f"配置已載入: {CONFIG_FILE}")
-    return config
+    """
+    Load configuration from config.json or environment variables
+    
+    Priority: config.json > environment variables > defaults
+    If config.json doesn't exist, uses pure environment variable mode via SharedConfig
+    """
+    # Try to load from config.json first
+    if CONFIG_FILE.exists():
+        config_manager = ConfigManager(str(CONFIG_FILE), logger)
+        config = config_manager.load_config()
+        logger.info(f"配置已從 config.json 載入: {CONFIG_FILE}")
+        return config
+    
+    # Fallback to environment variables via SharedConfig
+    logger.info("config.json 不存在，使用環境變數模式")
+    
+    try:
+        from shared_config import SharedConfig
+        shared = SharedConfig()
+        
+        # Build config dict from environment variables
+        config = {
+            'gemini_api_key': shared.gemini_api_key,
+            'chromedriver_path': shared.chromedriver_path,
+            'target_url': shared.target_url,
+            'download_dir': shared.download_dir,
+            'baseline_book_title': shared.baseline_book_title,
+            'smtp_server': shared.smtp_server,
+            'smtp_port': shared.smtp_port,
+            'smtp_username': shared.smtp_username,
+            'smtp_password': shared.smtp_password,
+            'email_recipients': shared.email_recipients,
+            'website_monitoring': {
+                'notifications': {
+                    'line_enabled': shared.line_enabled,
+                    'email_enabled': shared.email_enabled,
+                    'line_push_enabled': shared.line_push_enabled,
+                }
+            }
+        }
+        
+        # Validate required fields
+        if not config.get('gemini_api_key'):
+            logger.warning("⚠️ GEMINI_API_KEY 環境變數未設定")
+        
+        logger.info("✅ 環境變數配置載入成功")
+        return config
+        
+    except Exception as e:
+        logger.error(f"載入環境變數配置失敗: {e}")
+        raise
 
 
 def check_for_new_books(

@@ -50,6 +50,24 @@ NEWBOOK_CRON_EXPRESSION="0 9 * * *"  # 每天早上 9:00
 - `chromedriver_path` -> `/usr/bin/chromedriver`
 - `download_dir` -> `/app/ebook/downloads`
 
+## 🏭 正式環境建議 (Production Recommendations)
+
+針對本專案的特性，我們**強烈建議**在正式環境繼續使用 **Docker** 進行部署，而非直接運作於 LXC 或實體機 OS。
+
+### 為什麼選擇 Docker？
+
+1.  **依賴版本鎖定 (關鍵)**：
+    - 本專案依賴 **headless Chrome** 與 **Selenium**。
+    - Chrome 與 ChromeDriver 的版本必須嚴格匹配（例如 Chrome 114 必須配 ChromeDriver 114）。
+    - Docker Image 將這兩者鎖定在同一版本。若使用 LXC 或直接安裝於 Ubuntu，系統更新 (`apt upgrade`) 可能會單獨升級 Chrome，導致爬蟲功能失效。
+
+2.  **環境一致性**：
+    - 開發環境 (Windows/Docker) 與正式環境完全一致，減少「在我電腦上可以跑」的問題。
+
+3.  **Host OS 選擇**：
+    - 建議 Host OS 使用穩定的 Linux 發行版 (如 **Ubuntu 22.04 LTS** 或 **Debian 12**)。
+    - 只需安裝 Docker Engine，保持 Host 純淨。
+
 ## 🚀 部署步驟
 
 ### 1. 建構並啟動容器
