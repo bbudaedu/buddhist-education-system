@@ -56,17 +56,62 @@ export class LineMessagingService {
   }
 
   /**
+   * 取得主選單快速回覆按鈕
+   * @returns LINE QuickReply 物件，包含常用功能按鈕
+   */
+  getMainMenuQuickReply(): line.QuickReply {
+    return {
+      items: [
+        {
+          type: 'action',
+          action: {
+            type: 'message',
+            label: '📰 最新消息',
+            text: '最新消息'
+          }
+        },
+        {
+          type: 'action',
+          action: {
+            type: 'message',
+            label: '⚠️ 停課通知',
+            text: '停課通知'
+          }
+        },
+        {
+          type: 'action',
+          action: {
+            type: 'message',
+            label: '📚 最新法寶',
+            text: '最新法寶'
+          }
+        },
+        {
+          type: 'action',
+          action: {
+            type: 'message',
+            label: '🎬 最新影音',
+            text: '最新影音'
+          }
+        }
+      ]
+    };
+  }
+
+  /**
    * 發送簡單文字訊息
    * @param replyToken - LINE 提供的回覆 token
    * @param text - 要發送的文字內容
+   * @param quickReply - 可選的快速回覆按鈕
    */
-  async sendTextMessage(replyToken: string, text: string): Promise<void> {
+  async sendTextMessage(replyToken: string, text: string, quickReply?: line.QuickReply): Promise<void> {
     // 確保文字內容不為空
     const messageText = text && text.trim() !== '' ? text : '抱歉，系統暫時無法處理您的請求，請稍後再試。';
 
     const textMessage: line.TextMessage = {
       type: 'text',
-      text: messageText
+      text: messageText,
+      ...(quickReply && { quickReply })
     };
 
     await this.replyMessage(replyToken, [textMessage]);
@@ -145,20 +190,25 @@ export class LineMessagingService {
   }
 
   /**
-   * 發送歡迎訊息
+   * 發送歡迎訊息（含主選單按鈕）
    * @param replyToken - LINE 提供的回覆 token
    */
   async sendWelcomeMessage(replyToken: string): Promise<void> {
-    const welcomeText = `歡迎使用書庫查詢機器人！🤖📚
+    const welcomeText = `歡迎使用佛教教育基金會服務！🙏
 
-您可以用自然語言詢問書籍相關問題，例如：
-• "有沒有金剛經相關的書？"
-• "找一些關於程式設計的書"
-• "推薦幾本小說"
+您可以：
+• 用自然語言查詢書籍
+• 點擊下方按鈕快速瀏覽功能
 
-我會幫您搜尋書庫並提供詳細資訊！`;
+試試問我：「有沒有金剛經的書？」`;
 
-    await this.sendTextMessage(replyToken, welcomeText);
+    const textMessage: line.TextMessage = {
+      type: 'text',
+      text: welcomeText,
+      quickReply: this.getMainMenuQuickReply()
+    };
+
+    await this.replyMessage(replyToken, [textMessage]);
   }
 
   /**
