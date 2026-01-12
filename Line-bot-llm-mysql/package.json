@@ -7,7 +7,7 @@
     "dev": "ts-node src/index.ts",
     "dev:simple": "ts-node src/simple-index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "node dist/src/index.js",
     "migrate": "ts-node scripts/migrate.ts",
     "scheduler": "ts-node scripts/scheduler.ts",
     "scheduler:start": "npm run build && node dist/scripts/scheduler.js",
