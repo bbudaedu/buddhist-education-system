@@ -40,6 +40,25 @@ services:
     command: [ "node", "dist/scripts/scheduler.js" ]
     volumes:
       - ../ebook:/app/ebook # Mount ebook directory for integration
+
+  # Python Ebook Processor (API-first new book processing)
+  ebook-processor:
+    build:
+      context: ../ebook
+      dockerfile: Dockerfile
+    container_name: ebook-processor
+    env_file:
+      - .env
+    environment:
+      - CHROMEDRIVER_PATH=/usr/bin/chromedriver
+      - DOWNLOAD_DIR=/app/downloads
+    volumes:
+      - ebook_downloads:/app/downloads
+      - ebook_output:/app/generated_documents
+      - ebook_logs:/app/logs
+    profiles:
+      - tools # Only run when explicitly called
+    restart: "no"
   # MySQL Database (Disabled: Using external DB at 124.219.37.161)
   # mysql:
   #   image: mysql:8.0
@@ -59,6 +78,12 @@ services:
 
 volumes:
   mysql_data:
+    driver: local
+  ebook_downloads:
+    driver: local
+  ebook_output:
+    driver: local
+  ebook_logs:
     driver: local
 
 networks:
