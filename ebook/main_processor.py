@@ -1103,13 +1103,12 @@ class MainProcessor:
         """
         Update baseline book title to the first successfully processed book
         This prevents reprocessing the same books in future runs
+        
+        Supports both:
+        - config.json mode (via ConfigManager)
+        - .env mode (direct file update)
         """
         try:
-            # Skip if config_manager is not available (env vars mode)
-            if not hasattr(self, 'config_manager') or self.config_manager is None:
-                self.logger.info("跳過基準書籍標題更新 (環境變數模式，無 config.json)")
-                return
-            
             # Find successfully processed books
             successful_books = [
                 book for book in self.processed_books 
@@ -1121,23 +1120,87 @@ class MainProcessor:
                 return
             
             # Use the first successfully processed book as the new baseline
-            # This ensures we won't reprocess it in future runs
             new_baseline_title = successful_books[0]['title']
+            success = False
             
-            # Update configuration
-            success = self.config_manager.update_baseline_book_title(new_baseline_title)
+            # Try config.json mode first
+            if hasattr(self, 'config_manager') and self.config_manager is not None:
+                success = self.config_manager.update_baseline_book_title(new_baseline_title)
+                if success:
+                    self.logger.info(f"基準書籍標題已更新 (config.json): {new_baseline_title}")
+            
+            # If config.json not available, try updating .env file
+            if not success:
+                success = self._update_env_baseline(new_baseline_title)
+                if success:
+                    self.logger.info(f"基準書籍標題已更新 (.env): {new_baseline_title}")
             
             if success:
-                self.logger.info(f"基準書籍標題已自動更新為: {new_baseline_title}")
                 self.logger.info("下次執行時將從此書籍之後開始檢查新書")
-                
-                # Update our internal config as well
                 self.config['baseline_book_title'] = new_baseline_title
             else:
-                self.logger.error("自動更新基準書籍標題失敗")
+                self.logger.warning("無法自動更新基準書籍標題（手動更新 .env 中的 BASELINE_BOOK_TITLE）")
                 
         except Exception as e:
             self.logger.error(f"更新基準書籍標題時發生錯誤: {e}")
+    
+    def _update_env_baseline(self, new_title: str) -> bool:
+        """
+        Update BASELINE_BOOK_TITLE in .env file
+        
+        Args:
+            new_title: New baseline book title
+            
+        Returns:
+            bool: True if update successful
+        """
+        try:
+            # Look for .env file in multiple locations
+            env_paths = [
+                os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'Line-bot-llm-mysql', '.env'),
+                os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'),
+                '/app/.env',
+                '/opt/buddhist-education-system/Line-bot-llm-mysql/.env',
+            ]
+            
+            env_path = None
+            for path in env_paths:
+                if os.path.exists(path):
+                    env_path = path
+                    break
+            
+            if not env_path:
+                self.logger.debug("找不到 .env 檔案")
+                return False
+            
+            # Read current .env content
+            with open(env_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+            
+            # Update or add BASELINE_BOOK_TITLE
+            updated = False
+            new_lines = []
+            for line in lines:
+                if line.startswith('BASELINE_BOOK_TITLE='):
+                    new_lines.append(f'BASELINE_BOOK_TITLE={new_title}\n')
+                    updated = True
+                else:
+                    new_lines.append(line)
+            
+            # If not found, add it at the end
+            if not updated:
+                new_lines.append(f'\n# Auto-updated baseline book title\nBASELINE_BOOK_TITLE={new_title}\n')
+            
+            # Write back
+            with open(env_path, 'w', encoding='utf-8') as f:
+                f.writelines(new_lines)
+            
+            self.logger.info(f"已更新 .env 檔案: {env_path}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"更新 .env 檔案失敗: {e}")
+            return False
     
     def _log_final_statistics(self):
         """Log final processing statistics with error analysis"""

@@ -56,6 +56,7 @@ services:
       - ebook_downloads:/app/downloads
       - ebook_output:/app/generated_documents
       - ebook_logs:/app/logs
+      - ./.env:/app/.env:rw # Mount .env for baseline auto-update
     profiles:
       - tools # Only run when explicitly called
     restart: "no"
