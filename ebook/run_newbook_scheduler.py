@@ -66,6 +66,7 @@ def load_config(logger: logging.Logger) -> Dict[str, Any]:
     if CONFIG_FILE.exists():
         config_manager = ConfigManager(str(CONFIG_FILE), logger)
         config = config_manager.load_config()
+        config['config_path'] = str(CONFIG_FILE)  # Store path for later use
         logger.info(f"配置已從 config.json 載入: {CONFIG_FILE}")
         return config
     

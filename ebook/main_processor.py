@@ -446,6 +446,11 @@ class MainProcessor:
             )
             self.logger.info("✓ ProgressManager initialized")
             
+            # Initialize ConfigManager for baseline updates
+            config_path = self.config.get('config_path', 'config.json')
+            self.config_manager = ConfigManager(config_path, self.logger)
+            self.logger.info("✓ ConfigManager initialized")
+            
             # Set scraper to None (will be lazy-initialized if needed)
             self.scraper = None
             
