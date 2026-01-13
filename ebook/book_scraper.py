@@ -65,9 +65,13 @@ class BookScraper:
             options.add_experimental_option("prefs", prefs)
             
             # Additional Chrome options for stability
-            options.add_argument("--no-sandbox")
-            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--headless=new")  # Required for containers without display
+            options.add_argument("--no-sandbox")  # Required for containers
+            options.add_argument("--disable-dev-shm-usage")  # Overcome limited /dev/shm in containers
             options.add_argument("--disable-gpu")
+            options.add_argument("--disable-extensions")
+            options.add_argument("--disable-software-rasterizer")
+            options.add_argument("--remote-debugging-port=9222")
             options.add_argument("--window-size=1920,1080")
             
             # Create Chrome service
