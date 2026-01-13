@@ -207,19 +207,40 @@ export class DailySchedulerService {
 
   /**
    * 觸發新書檢查 Python 腳本
+   * 支援 Docker 模式和直接執行模式
    */
   public async triggerNewBookCheck(): Promise<ProcessingResult> {
     return new Promise((resolve) => {
       const startTime = Date.now();
-      const scriptPath = path.resolve(path.dirname(this.config.ebookProcessorPath), 'run_newbook_scheduler.py');
-
-      console.log(`🐍 Executing new book scheduler: ${scriptPath}`);
+      const useDocker = process.env.USE_DOCKER_EBOOK !== 'false'; // 預設使用 Docker
 
       const args = this.newBookConfig.checkOnly ? ['--check-only'] : [];
       args.push('--verbose');
 
-      this.newBookProcess = spawn(this.config.pythonExecutable, [scriptPath, ...args], {
-        cwd: path.dirname(this.config.ebookProcessorPath),
+      let command: string;
+      let commandArgs: string[];
+      let cwd: string;
+
+      if (useDocker) {
+        // Docker 模式：使用 docker compose run
+        console.log('🐳 Executing new book scheduler via Docker...');
+        command = 'docker';
+        commandArgs = [
+          'compose', 'run', '--rm', 'ebook-processor',
+          'python', 'run_newbook_scheduler.py', ...args
+        ];
+        cwd = path.dirname(this.config.ebookProcessorPath).replace('/ebook', '/Line-bot-llm-mysql');
+      } else {
+        // 直接執行模式：使用 Python
+        const scriptPath = path.resolve(path.dirname(this.config.ebookProcessorPath), 'run_newbook_scheduler.py');
+        console.log(`🐍 Executing new book scheduler: ${scriptPath}`);
+        command = this.config.pythonExecutable;
+        commandArgs = [scriptPath, ...args];
+        cwd = path.dirname(this.config.ebookProcessorPath);
+      }
+
+      this.newBookProcess = spawn(command, commandArgs, {
+        cwd,
         stdio: ['pipe', 'pipe', 'pipe'],
         env: {
           ...process.env,
@@ -230,26 +251,22 @@ export class DailySchedulerService {
 
       let stdout = '';
       let stderr = '';
-      let jsonOutput = '';
 
       this.newBookProcess.stdout?.on('data', (data) => {
         const output = data.toString();
         stdout += output;
-
-        // 擷取 JSON 輸出
-        if (output.includes('--- JSON OUTPUT ---')) {
-          jsonOutput = '';
-        } else if (jsonOutput !== undefined && output.trim()) {
-          jsonOutput += output;
-        }
-
         console.log(`📝 NewBook: ${output.trim()}`);
       });
 
       this.newBookProcess.stderr?.on('data', (data) => {
         const error = data.toString();
         stderr += error;
-        console.error(`🚨 NewBook error: ${error.trim()}`);
+        // Docker 輸出中有些是 info 而非 error
+        if (error.includes('Error') || error.includes('error')) {
+          console.error(`🚨 NewBook error: ${error.trim()}`);
+        } else {
+          console.log(`📝 NewBook: ${error.trim()}`);
+        }
       });
 
       this.newBookProcess.on('close', (code) => {
