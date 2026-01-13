@@ -446,10 +446,14 @@ class MainProcessor:
             )
             self.logger.info("✓ ProgressManager initialized")
             
-            # Initialize ConfigManager for baseline updates
+            # Initialize ConfigManager for baseline updates (optional - only if config.json exists)
             config_path = self.config.get('config_path', 'config.json')
-            self.config_manager = ConfigManager(config_path, self.logger)
-            self.logger.info("✓ ConfigManager initialized")
+            if config_path and os.path.exists(config_path):
+                self.config_manager = ConfigManager(config_path, self.logger)
+                self.logger.info("✓ ConfigManager initialized")
+            else:
+                self.config_manager = None
+                self.logger.info("⚠ ConfigManager skipped (using env vars mode, baseline updates disabled)")
             
             # Set scraper to None (will be lazy-initialized if needed)
             self.scraper = None
@@ -1101,6 +1105,11 @@ class MainProcessor:
         This prevents reprocessing the same books in future runs
         """
         try:
+            # Skip if config_manager is not available (env vars mode)
+            if not hasattr(self, 'config_manager') or self.config_manager is None:
+                self.logger.info("跳過基準書籍標題更新 (環境變數模式，無 config.json)")
+                return
+            
             # Find successfully processed books
             successful_books = [
                 book for book in self.processed_books 
