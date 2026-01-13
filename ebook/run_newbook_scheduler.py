@@ -181,19 +181,23 @@ def check_for_new_books(
     }
 
 
-def process_new_books(config: Dict[str, Any], logger: logging.Logger) -> Dict[str, Any]:
+def process_new_books(config: Dict[str, Any], api_books: List[Dict[str, Any]], logger: logging.Logger) -> Dict[str, Any]:
     """
-    Execute the full new book processing workflow using MainProcessor
+    Execute the full new book processing workflow using MainProcessor with API data
+    
+    API-first approach: Uses book data from API directly instead of web scraping
     
     Args:
         config: Configuration dictionary
+        api_books: List of book dicts from API (contains pdfUrl, title, author, etc.)
         logger: Logger instance
         
     Returns:
         Dict containing processing results
     """
     logger.info("=" * 60)
-    logger.info("開始執行新書處理流程")
+    logger.info("開始執行 API 模式新書處理流程")
+    logger.info(f"待處理書籍: {len(api_books)} 本")
     logger.info("=" * 60)
     
     start_time = datetime.now()
@@ -202,8 +206,8 @@ def process_new_books(config: Dict[str, Any], logger: logging.Logger) -> Dict[st
         # Initialize MainProcessor
         processor = MainProcessor(config, logger)
         
-        # Run the processing workflow
-        success = processor.run()
+        # Run the API-based processing workflow
+        success = processor.run_with_api_data(api_books)
         
         end_time = datetime.now()
         execution_time = (end_time - start_time).total_seconds()
@@ -212,7 +216,8 @@ def process_new_books(config: Dict[str, Any], logger: logging.Logger) -> Dict[st
             'success': success,
             'execution_time_seconds': execution_time,
             'timestamp': datetime.now().isoformat(),
-            'message': '處理完成' if success else '處理失敗'
+            'message': '處理完成' if success else '處理失敗',
+            'mode': 'api_first'
         }
         
         if success:
@@ -329,9 +334,10 @@ def main():
             
             return 0
         
-        # If new books found and not check-only, process them
+        # If new books found and not check-only, process them using API data
         if check_result.get('has_new_books'):
-            process_result = process_new_books(config, logger)
+            api_books = check_result.get('new_books', [])
+            process_result = process_new_books(config, api_books, logger)
             final_result['processing'] = process_result
             final_result['action'] = 'processed'
             final_result['success'] = process_result.get('success', False)

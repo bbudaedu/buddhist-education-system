@@ -313,6 +313,277 @@ class MainProcessor:
             self._cleanup_modules()
             self.is_running = False
     
+    def run_with_api_data(self, api_books: List[Dict[str, Any]]) -> bool:
+        """
+        Execute processing workflow using API data directly (no web scraping for book discovery)
+        
+        API-first approach:
+        1. Use book data from API (includes PDF URLs)
+        2. Download PDFs directly using the provided URLs
+        3. Generate AI summaries
+        4. Generate documents and send email
+        
+        Args:
+            api_books: List of book dicts from API with fields:
+                - title, author, pdfUrl, code, coverUrl, etc.
+        
+        Returns:
+            bool: True if processing completed successfully
+        """
+        try:
+            self.is_running = True
+            self.stop_flag = False
+            self.processing_stats['start_time'] = datetime.now()
+            self.processing_stats['total_books_found'] = len(api_books)
+            
+            self.logger.info("=" * 60)
+            self.logger.info("開始 API 模式新書摘要處理流程")
+            self.logger.info(f"待處理書籍: {len(api_books)} 本")
+            self.logger.info("=" * 60)
+            
+            # Step 1: Initialize modules (skip scraper for book finding, but keep for download)
+            self._update_status("初始化系統模組...")
+            self._initialize_modules_for_api_mode()
+            
+            if self.should_stop():
+                return self._handle_interruption()
+            
+            # Step 2: Load progress cache
+            self._update_status("載入進度快取...")
+            if not self._load_progress_cache():
+                return False
+            
+            if self.should_stop():
+                return self._handle_interruption()
+            
+            # Step 3: Convert API books to processing format and process
+            self._update_status(f"開始處理 {len(api_books)} 本新書...")
+            if not self._process_api_books(api_books):
+                return False
+            
+            if self.should_stop():
+                return self._handle_interruption()
+            
+            # Step 4: Generate documents
+            self._update_status("生成文件...")
+            document_paths = None
+            try:
+                document_paths = self._generate_documents()
+                if not document_paths:
+                    self.logger.error("文件生成失敗，但處理流程繼續")
+            except Exception as doc_error:
+                self.logger.error(f"文件生成發生錯誤: {doc_error}")
+            
+            if self.should_stop():
+                return self._handle_interruption()
+            
+            # Step 5: Send email
+            if document_paths:
+                self._update_status("發送郵件...")
+                try:
+                    email_success = self._send_email(document_paths)
+                    if not email_success:
+                        self.logger.error("郵件發送失敗，但處理流程已完成")
+                except Exception as email_error:
+                    self.logger.error(f"郵件發送發生錯誤: {email_error}")
+            else:
+                self.logger.warning("跳過郵件發送 (文件生成失敗)")
+                self._update_status("跳過郵件發送 (文件生成失敗)")
+            
+            # Step 6: Cleanup
+            self._update_status("處理完成，清理資源...")
+            self._mark_completion()
+            
+            self.processing_stats['end_time'] = datetime.now()
+            self._log_final_statistics()
+            
+            self.logger.info("=" * 60)
+            self.logger.info("API 模式新書摘要處理流程完成")
+            self.logger.info("=" * 60)
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"API 模式處理流程發生錯誤: {e}", exc_info=True)
+            self._update_status(f"處理失敗: {e}")
+            return False
+        finally:
+            self._cleanup_modules()
+            self.is_running = False
+    
+    def _initialize_modules_for_api_mode(self):
+        """
+        Initialize modules for API mode (skip web scraper setup, just download capabilities)
+        """
+        try:
+            self.logger.info("Initializing modules for API mode...")
+            
+            # Initialize GeminiProcessor
+            self.ai_processor = GeminiProcessor(
+                api_key=self.config['gemini_api_key'],
+                logger=self.logger
+            )
+            self.logger.info("✓ GeminiProcessor initialized")
+            
+            # Initialize DocumentGenerator
+            self.document_generator = DocumentGenerator(
+                logger=self.logger
+            )
+            self.logger.info("✓ DocumentGenerator initialized")
+            
+            # Initialize EmailSender
+            self.email_sender = EmailSender(
+                config=self.config,
+                logger=self.logger
+            )
+            self.logger.info("✓ EmailSender initialized")
+            
+            # Initialize ProgressManager
+            self.progress_manager = ProgressManager(
+                project_name="newbook_summary",
+                cache_dir=".",
+                logger=self.logger
+            )
+            self.logger.info("✓ ProgressManager initialized")
+            
+            # Set scraper to None (will be lazy-initialized if needed)
+            self.scraper = None
+            
+            self.processed_books = []
+            self.logger.info("All API mode modules initialized successfully")
+            
+        except Exception as e:
+            self.logger.error(f"API mode module initialization failed: {e}")
+            raise
+    
+    def _process_api_books(self, api_books: List[Dict[str, Any]]) -> bool:
+        """
+        Process books using API data directly
+        
+        Args:
+            api_books: List of book dicts from API
+            
+        Returns:
+            bool: True if processing completed (some may have failed)
+        """
+        import requests
+        
+        total_books = len(api_books)
+        download_dir = self.config.get('download_dir', 'downloads')
+        
+        # Ensure download directory exists
+        if not os.path.exists(download_dir):
+            os.makedirs(download_dir, exist_ok=True)
+        
+        for i, api_book in enumerate(api_books):
+            if self.should_stop():
+                self.logger.warning("處理被中斷")
+                return True
+            
+            book_title = api_book.get('title', f'書籍 {i+1}')
+            
+            try:
+                self._update_status(f"處理書籍 {i+1}/{total_books}: {book_title}")
+                
+                # Skip if already processed
+                if self.progress_manager.should_skip_book(book_title):
+                    self.logger.info(f"跳過已處理的書籍: {book_title}")
+                    continue
+                
+                # Convert API book to internal format
+                pdf_url = api_book.get('pdfUrl', '')
+                filename = pdf_url.split('/')[-1] if pdf_url else ''
+                download_path = os.path.join(download_dir, filename) if filename else ''
+                
+                book_info = {
+                    'title': f"{book_title} {api_book.get('code', '')}",
+                    'author': api_book.get('author', '未知作者'),
+                    'pdf_url': pdf_url,
+                    'filename': filename,
+                    'download_path': download_path,
+                    'download_success': False,
+                    'api_data': api_book  # Keep original API data
+                }
+                
+                # Download PDF directly using requests (no scraper needed)
+                if pdf_url:
+                    try:
+                        self.logger.info(f"下載 PDF: {filename}")
+                        headers = {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                        }
+                        response = requests.get(pdf_url, headers=headers, timeout=120, verify=False)
+                        response.raise_for_status()
+                        
+                        with open(download_path, 'wb') as f:
+                            f.write(response.content)
+                        
+                        book_info['download_success'] = True
+                        self.logger.info(f"✓ PDF 下載成功: {filename}")
+                        
+                    except Exception as dl_error:
+                        self.logger.error(f"PDF 下載失敗: {dl_error}")
+                        book_info['error_message'] = f"下載失敗: {dl_error}"
+                        self.processing_stats['books_failed'] += 1
+                else:
+                    self.logger.warning(f"無 PDF URL: {book_title}")
+                    book_info['error_message'] = "無 PDF URL"
+                    self.processing_stats['books_failed'] += 1
+                
+                # Process with AI if download successful
+                processing_result = None
+                if book_info['download_success']:
+                    try:
+                        self.logger.info(f"開始 AI 處理: {book_title}")
+                        processing_result = self.ai_processor.generate_summary_with_retry(book_info)
+                        self.processing_stats['books_processed'] += 1
+                        
+                        method = processing_result.get('processing_method', '')
+                        if method == 'pdf_extract':
+                            self.processing_stats['pdf_extractions'] += 1
+                        elif method == 'google_search':
+                            self.processing_stats['google_searches'] += 1
+                        
+                        self.logger.info(f"✓ 成功處理: {book_title}")
+                        
+                    except Exception as ai_error:
+                        self.logger.error(f"AI 處理失敗: {ai_error}")
+                        book_info['error_message'] = f"AI 處理失敗: {ai_error}"
+                        self.processing_stats['books_failed'] += 1
+                
+                # Add to processed books
+                processing_success = (
+                    processing_result is not None and 
+                    processing_result.get('summary') and 
+                    len(processing_result.get('summary', '').strip()) > 0
+                )
+                
+                book_entry = {
+                    **book_info,
+                    **(processing_result or {}),
+                    'processing_success': processing_success
+                }
+                
+                self.processed_books.append(book_entry)
+                
+                # Save progress
+                try:
+                    self.progress_manager.add_processed_book(book_info, processing_result)
+                except Exception as progress_error:
+                    self.logger.warning(f"進度儲存失敗: {progress_error}")
+                
+                # Log progress
+                processed = self.processing_stats['books_processed']
+                failed = self.processing_stats['books_failed']
+                self.logger.info(f"進度: {processed} 成功, {failed} 失敗, {i+1}/{total_books} 完成")
+                
+            except Exception as e:
+                self.logger.error(f"處理書籍時發生錯誤 ({book_title}): {e}")
+                self.processing_stats['books_failed'] += 1
+                continue
+        
+        return True
+    
     def _load_progress_cache(self) -> bool:
         """
         Load progress cache and initialize session
