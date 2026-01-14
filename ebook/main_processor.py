@@ -390,7 +390,18 @@ class MainProcessor:
                 self.logger.warning("跳過郵件發送 (文件生成失敗)")
                 self._update_status("跳過郵件發送 (文件生成失敗)")
             
-            # Step 6: Cleanup
+            # Step 6: Sync to database
+            self._update_status("同步到資料庫...")
+            try:
+                sync_result = self._sync_to_database()
+                if sync_result:
+                    self.logger.info(f"資料庫同步成功: {sync_result}")
+                else:
+                    self.logger.warning("資料庫同步跳過或失敗")
+            except Exception as sync_error:
+                self.logger.error(f"資料庫同步發生錯誤: {sync_error}")
+            
+            # Step 7: Cleanup
             self._update_status("處理完成，清理資源...")
             self._mark_completion()
             
@@ -1211,6 +1222,71 @@ class MainProcessor:
         except Exception as e:
             self.logger.error(f"更新 .env 檔案失敗: {e}")
             return False
+    
+    def _sync_to_database(self) -> Optional[Dict[str, Any]]:
+        """
+        Sync processed books to database via Node.js API
+        
+        Returns:
+            Dict: Sync result or None if failed
+        """
+        try:
+            import requests
+            
+            # Get API base URL from config or environment
+            api_base_url = self.config.get('api_base_url', os.environ.get('API_BASE_URL', 'http://localhost:3000'))
+            sync_url = f"{api_base_url}/api/sync/new-books"
+            
+            # Filter successfully processed books
+            successful_books = [
+                book for book in self.processed_books 
+                if book.get('processing_success', False) and book.get('summary')
+            ]
+            
+            if not successful_books:
+                self.logger.info("沒有成功處理的書籍，跳過資料庫同步")
+                return None
+            
+            # Format data for API
+            books_data = []
+            for book in successful_books:
+                book_code = book.get('code', book.get('filename', '').replace('.pdf', ''))
+                books_data.append({
+                    'book_code': book_code,
+                    'title': book.get('title', ''),
+                    'author': book.get('author', ''),
+                    'pdf_filename': book.get('filename', ''),
+                    'file_size_mb': book.get('file_size_mb'),
+                    'processing_method': book.get('processing_method', ''),
+                    'summary': book.get('summary', ''),
+                    'download_url': book.get('pdf_url', book.get('downloadUrl', '')),
+                    'processing_timestamp': datetime.now().isoformat()
+                })
+            
+            self.logger.info(f"同步 {len(books_data)} 本書籍到資料庫...")
+            
+            # Call API
+            response = requests.post(
+                sync_url,
+                json={'books': books_data},
+                headers={'Content-Type': 'application/json'},
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                self.logger.info(f"資料庫同步完成: {result.get('message', 'Success')}")
+                return result
+            else:
+                self.logger.error(f"資料庫同步失敗 (HTTP {response.status_code}): {response.text}")
+                return None
+                
+        except requests.exceptions.ConnectionError:
+            self.logger.warning("無法連接到 API 服務，跳過資料庫同步")
+            return None
+        except Exception as e:
+            self.logger.error(f"資料庫同步錯誤: {e}")
+            return None
     
     def _log_final_statistics(self):
         """Log final processing statistics with error analysis"""

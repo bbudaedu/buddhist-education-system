@@ -374,6 +374,63 @@ app.post('/api/notifications/test', handleTestNotification);
 // 通知服務健康檢查
 app.get('/api/notifications/health', handleNotificationHealthCheck);
 
+// 新書同步 API 端點
+import { newBooksService, NewBookSyncData } from './services/newBooksService';
+
+// 接收來自 Python 的新書摘要同步
+app.post('/api/sync/new-books', async (req, res) => {
+  try {
+    const { books } = req.body as { books: NewBookSyncData[] };
+
+    if (!books || !Array.isArray(books)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid request body',
+        message: 'Expected { books: [...] } array'
+      });
+    }
+
+    console.log(`📚 Received ${books.length} books for sync`);
+    const result = await newBooksService.syncNewBooks(books);
+
+    console.log(`✅ Sync complete: ${result.synced} synced, ${result.skipped} skipped`);
+
+    return res.json({
+      message: `Synced ${result.synced} books`,
+      ...result
+    });
+  } catch (error) {
+    console.error('❌ New books sync failed:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Sync failed',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// 取得最近同步的新書
+app.get('/api/sync/new-books/recent', async (req, res) => {
+  try {
+    const days = parseInt(req.query.days as string) || 7;
+    const limit = parseInt(req.query.limit as string) || 20;
+
+    const books = await newBooksService.getRecentBooks(days, limit);
+
+    return res.json({
+      success: true,
+      count: books.length,
+      books
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to get recent books',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 // 會員 API 路由
 app.use('/api/member', memberRoutes);
 

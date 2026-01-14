@@ -112,6 +112,14 @@ export class DatabaseService {
   }
 
   /**
+   * 取得資料庫連線
+   * @returns Promise<mysql.PoolConnection> 資料庫連線
+   */
+  async getConnection(): Promise<mysql.PoolConnection> {
+    return await this.pool.getConnection();
+  }
+
+  /**
    * 同步法寶資料到資料庫
    * @param books 書籍資料陣列
    * @returns Promise<{ inserted: number, updated: number }> 同步結果
