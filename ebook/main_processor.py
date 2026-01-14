@@ -581,6 +581,16 @@ class MainProcessor:
                 except Exception as progress_error:
                     self.logger.warning(f"進度儲存失敗: {progress_error}")
                 
+                # Cleanup: Delete PDF after successful processing
+                if processing_success and book_info.get('download_path'):
+                    try:
+                        pdf_path = book_info['download_path']
+                        if os.path.exists(pdf_path):
+                            os.remove(pdf_path)
+                            self.logger.info(f"🗑️ PDF 已刪除: {book_info.get('filename', pdf_path)}")
+                    except Exception as cleanup_error:
+                        self.logger.warning(f"PDF 刪除失敗: {cleanup_error}")
+                
                 # Log progress
                 processed = self.processing_stats['books_processed']
                 failed = self.processing_stats['books_failed']
