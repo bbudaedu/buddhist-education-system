@@ -45,6 +45,7 @@ services:
       - ../ebook:/app/ebook # Mount ebook directory for integration
       - /etc/localtime:/etc/localtime:ro
       - /var/run/docker.sock:/var/run/docker.sock # Allow scheduler to run docker commands
+      - ./.env:/app/.env:ro # Mount .env for internal docker compose usage
 
   # Python Ebook Processor (API-first new book processing)
   ebook-processor:
