@@ -39,8 +39,8 @@ services:
     # depends_on:
     #   - mysql
     restart: unless-stopped
-    entrypoint: [ "" ]
-    command: [ "node", "dist/scripts/scheduler.js" ]
+    entrypoint: [ "/bin/sh", "-c" ]
+    command: [ "node dist/scripts/scheduler.js" ]
     volumes:
       - ../ebook:/app/ebook # Mount ebook directory for integration
       - /etc/localtime:/etc/localtime:ro
