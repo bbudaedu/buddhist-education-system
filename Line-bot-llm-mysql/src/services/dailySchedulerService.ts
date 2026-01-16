@@ -239,9 +239,9 @@ export class DailySchedulerService {
         cwd = path.dirname(this.config.ebookProcessorPath);
       }
 
-      // Use /bin/bash -c to execute docker command to avoid shell path issues
+      // Use /bin/sh -c to execute docker command to avoid shell path issues
       const fullCommand = `${command} ${commandArgs.join(' ')}`;
-      this.newBookProcess = spawn('/bin/bash', ['-c', fullCommand], {
+      this.newBookProcess = spawn('/bin/sh', ['-c', fullCommand], {
         cwd,
         stdio: ['pipe', 'pipe', 'pipe'],
         env: {
