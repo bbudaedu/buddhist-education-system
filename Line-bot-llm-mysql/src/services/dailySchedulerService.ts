@@ -1,5 +1,5 @@
 import { CronJob } from 'cron';
-import { spawn, ChildProcess } from 'child_process';
+import { exec, spawn, ChildProcess } from 'child_process';
 import path from 'path';
 import { schedulerConfig, newBookSchedulerConfig, SchedulerConfig as ConfigSchedulerConfig, NewBookSchedulerConfig, notificationChannelsConfig } from '../config/index';
 import { EbookIntegrationService, defaultFileMonitorConfig, ProcessedBookData } from './ebookIntegrationService';
@@ -239,18 +239,57 @@ export class DailySchedulerService {
         cwd = path.dirname(this.config.ebookProcessorPath);
       }
 
-      // Use /bin/sh -c to execute docker command to avoid shell path issues
+      // Use exec to execute docker command (automatically uses shell)
       const fullCommand = `${command} ${commandArgs.join(' ')}`;
-      this.newBookProcess = spawn('/bin/sh', ['-c', fullCommand], {
+      console.log(`📝 Executing: ${fullCommand}`);
+
+      this.newBookProcess = exec(fullCommand, {
         cwd,
-        stdio: ['pipe', 'pipe', 'pipe'],
         env: {
           ...process.env,
           PYTHONIOENCODING: 'utf-8',
           PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
         },
-        timeout: this.newBookConfig.timeoutMs
-      });
+        timeout: this.newBookConfig.timeoutMs,
+        maxBuffer: 10 * 1024 * 1024 // 10MB buffer
+      }, (error, stdout, stderr) => {
+        this.newBookProcess = null;
+        const processingTime = Date.now() - startTime;
+
+        if (error) {
+          console.error(`🚨 NewBook error: ${error.message}`);
+          if (stderr) console.log(`📝 NewBook stderr: ${stderr}`);
+          resolve({
+            success: false,
+            processingTime,
+            booksProcessed: 0,
+            errorMessage: `Process failed: ${error.message}. stderr: ${stderr}`
+          });
+          return;
+        }
+
+        // Log output
+        if (stdout) console.log(`📝 NewBook stdout: ${stdout}`);
+        if (stderr) console.log(`📝 NewBook stderr: ${stderr}`);
+
+        // 嘗試解析 JSON 輸出
+        let booksProcessed = 0;
+        try {
+          const jsonMatch = stdout.match(/--- JSON OUTPUT ---\s*([\s\S]*?)$/m);
+          if (jsonMatch && jsonMatch[1]) {
+            const result = JSON.parse(jsonMatch[1].trim());
+            booksProcessed = result.new_books_count || 0;
+          }
+        } catch (e) {
+          // JSON 解析失敗不是致命錯誤
+        }
+
+        resolve({
+          success: true,
+          processingTime,
+          booksProcessed
+        });
+      }) as ChildProcess;
 
       let stdout = '';
       let stderr = '';
