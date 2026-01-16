@@ -158,7 +158,7 @@ export class DailySchedulerService {
       true, // start immediately
       this.config.timeZone,
       null, // context
-      false, // runOnInit
+      this.newBookConfig.runOnInit, // runOnInit
       undefined, // utcOffset
       false, // unrefTimeout
       true, // waitForCompletion

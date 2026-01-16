@@ -75,6 +75,7 @@ export interface NewBookSchedulerConfig {
   scriptPath: string;           // Python 腳本路徑
   checkOnly: boolean;           // 是否僅檢查不處理
   timeoutMs: number;            // 執行超時時間 (毫秒)
+  runOnInit: boolean;           // 是否在啟動時立即執行
 }
 
 // 主配置介面
@@ -236,7 +237,8 @@ function createConfig(): Config {
       cronExpression: process.env.NEWBOOK_CRON_EXPRESSION || '0 9 * * *', // 每天 09:00
       scriptPath: process.env.NEWBOOK_SCRIPT_PATH || '../ebook/run_newbook_scheduler.py',
       checkOnly: process.env.NEWBOOK_CHECK_ONLY === 'true',  // 預設執行完整處理
-      timeoutMs: parseIntEnv(process.env.NEWBOOK_TIMEOUT_MS, 300000)  // 5 分鐘超時
+      timeoutMs: parseIntEnv(process.env.NEWBOOK_TIMEOUT_MS, 300000),  // 5 分鐘超時
+      runOnInit: process.env.NEWBOOK_RUN_ON_INIT === 'true'   // 是否在啟動時立即執行
     },
     notifications: {
       maxRecipientsPerBatch: parseIntEnv(process.env.NOTIFICATION_MAX_RECIPIENTS_PER_BATCH, 100),
