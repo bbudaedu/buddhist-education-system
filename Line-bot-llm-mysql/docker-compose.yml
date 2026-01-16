@@ -39,6 +39,7 @@ services:
     # depends_on:
     #   - mysql
     restart: unless-stopped
+    entrypoint: [ "" ]
     command: [ "node", "dist/scripts/scheduler.js" ]
     volumes:
       - ../ebook:/app/ebook # Mount ebook directory for integration
