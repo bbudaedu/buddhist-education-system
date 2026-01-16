@@ -225,10 +225,9 @@ export class DailySchedulerService {
         // Docker 模式：使用 docker compose run
         console.log('🐳 Executing new book scheduler via Docker...');
         command = '/usr/bin/docker';
-        // Add --no-build to prevent trying to build image inside container (where source might not exist)
         // Add -p line-bot-llm-mysql to reuse the same project name and network
         commandArgs = [
-          'compose', '-p', 'line-bot-llm-mysql', 'run', '--rm', '--no-build', 'ebook-processor',
+          'compose', '-p', 'line-bot-llm-mysql', 'run', '--rm', 'ebook-processor',
           'python', 'run_newbook_scheduler.py', ...args
         ];
         // In container, we want to run from project root (/app) where docker-compose.yml is likely located
