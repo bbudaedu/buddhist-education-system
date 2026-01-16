@@ -229,7 +229,8 @@ export class DailySchedulerService {
           'compose', 'run', '--rm', 'ebook-processor',
           'python', 'run_newbook_scheduler.py', ...args
         ];
-        cwd = path.dirname(this.config.ebookProcessorPath).replace('/ebook', '/Line-bot-llm-mysql');
+        // In container, we want to run from project root (/app) where docker-compose.yml is likely located
+        cwd = process.cwd();
       } else {
         // 直接執行模式：使用 Python
         const scriptPath = path.resolve(path.dirname(this.config.ebookProcessorPath), 'run_newbook_scheduler.py');
