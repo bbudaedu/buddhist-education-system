@@ -1,18 +1,16 @@
-# Use Node.js 18 LTS as base image
-FROM node:18-alpine
+# Use Node.js 18 LTS on Debian slim
+FROM node:18-slim
 
-# Install Python 3, pip, and required packages for Selenium
-RUN apk add --no-cache \
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
   python3 \
-  py3-pip \
+  python3-pip \
   chromium \
-  chromium-chromedriver \
-  freetype \
-  harfbuzz \
+  chromium-driver \
   ca-certificates \
-  ttf-freefont \
-  docker-cli \
-  docker-cli-compose
+  fonts-freefont-ttf \
+  docker.io \
+  && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
 RUN pip3 install --no-cache-dir --break-system-packages \
@@ -42,14 +40,6 @@ RUN npm run build
 
 # Remove devDependencies to keep image small
 RUN npm prune --production
-
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
-
-# Change ownership of the app directory
-RUN chown -R nodejs:nodejs /app
-USER nodejs
 
 # Expose port
 EXPOSE 3000
