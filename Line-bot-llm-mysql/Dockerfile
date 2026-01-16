@@ -10,7 +10,9 @@ RUN apk add --no-cache \
   freetype \
   harfbuzz \
   ca-certificates \
-  ttf-freefont
+  ttf-freefont \
+  docker-cli \
+  docker-cli-compose
 
 # Install Python dependencies
 RUN pip3 install --no-cache-dir --break-system-packages \
