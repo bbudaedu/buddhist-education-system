@@ -242,6 +242,7 @@ export class DailySchedulerService {
       this.newBookProcess = spawn(command, commandArgs, {
         cwd,
         stdio: ['pipe', 'pipe', 'pipe'],
+        shell: true, // Required for Docker command to work in container
         env: {
           ...process.env,
           PYTHONIOENCODING: 'utf-8'
