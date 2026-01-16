@@ -224,7 +224,7 @@ export class DailySchedulerService {
       if (useDocker) {
         // Docker 模式：使用 docker compose run
         console.log('🐳 Executing new book scheduler via Docker...');
-        command = 'docker';
+        command = '/usr/bin/docker';
         commandArgs = [
           'compose', 'run', '--rm', 'ebook-processor',
           'python', 'run_newbook_scheduler.py', ...args
