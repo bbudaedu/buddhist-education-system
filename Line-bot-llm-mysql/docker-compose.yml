@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # LINE Bot Web Server
   line-bot-web:
