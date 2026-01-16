@@ -9,6 +9,7 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
+      - TZ=Asia/Taipei
       - SCHEDULER_ENABLED=false # Disable scheduler in web service
     env_file:
       - .env
@@ -29,6 +30,7 @@ services:
     user: root # Required for write access to mounted ebook directory
     environment:
       - NODE_ENV=production
+      - TZ=Asia/Taipei
       - SCHEDULER_ENABLED=true
       - CHROMEDRIVER_PATH=/usr/bin/chromedriver
       - DOWNLOAD_DIR=/app/ebook/downloads
@@ -50,6 +52,7 @@ services:
     env_file:
       - .env
     environment:
+      - TZ=Asia/Taipei
       - CHROMEDRIVER_PATH=/usr/bin/chromedriver
       - DOWNLOAD_DIR=/app/downloads
     volumes:
