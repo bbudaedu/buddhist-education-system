@@ -14,6 +14,8 @@ services:
     # depends_on:
     #   - mysql
     restart: unless-stopped
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
     healthcheck:
       test: [ "CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })" ]
       interval: 30s
@@ -40,6 +42,7 @@ services:
     command: [ "node", "dist/scripts/scheduler.js" ]
     volumes:
       - ../ebook:/app/ebook # Mount ebook directory for integration
+      - /etc/localtime:/etc/localtime:ro
 
   # Python Ebook Processor (API-first new book processing)
   ebook-processor:
