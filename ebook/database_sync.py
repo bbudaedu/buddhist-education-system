@@ -16,8 +16,12 @@ class DatabaseSyncManager:
         self.logger = logger or logging.getLogger(__name__)
         
         # Load configuration
+        # Priority: Env Var > Config File > Default Docker Service URL
+        env_api_url = os.environ.get('API_BASE_URL')
+        default_api_url = env_api_url if env_api_url else 'http://line-bot-web:3000'
+        
         self.config = self._load_config()
-        self.api_base_url = self.config.get('linebot_api_url', 'http://localhost:3000')
+        self.api_base_url = self.config.get('linebot_api_url', default_api_url)
         
         self.logger.info("Database Sync Manager initialized")
     
@@ -36,10 +40,9 @@ class DatabaseSyncManager:
                     config = json.load(f)
                     
                 # Add database sync configuration if not present
-                if 'database_sync' not in config:
                     config['database_sync'] = {
                         'enabled': True,
-                        'linebot_api_url': 'http://localhost:3000',
+                        'linebot_api_url': 'http://line-bot-web:3000',
                         'sync_timeout': 30,
                         'retry_attempts': 3
                     }
@@ -53,7 +56,7 @@ class DatabaseSyncManager:
                 self.logger.warning("Config file not found, using default settings")
                 return {
                     'enabled': True,
-                    'linebot_api_url': 'http://localhost:3000',
+                    'linebot_api_url': 'http://line-bot-web:3000',
                     'sync_timeout': 30,
                     'retry_attempts': 3
                 }
@@ -62,7 +65,7 @@ class DatabaseSyncManager:
             self.logger.error(f"Failed to load config: {e}")
             return {
                 'enabled': False,
-                'linebot_api_url': 'http://localhost:3000',
+                'linebot_api_url': 'http://line-bot-web:3000',
                 'sync_timeout': 30,
                 'retry_attempts': 3
             }

@@ -272,7 +272,7 @@ class GeminiProcessor:
                                     successful_pages += 1
                                     self.logger.debug(f"Extracted text from page {page_num}")
                                 else:
-                                    self.logger.debug(f"No text found on page {page_num}")
+                                    pass # Skip logging per page to avoid spam
                             except Exception as page_error:
                                 self.logger.warning(f"Failed to extract text from page {page_num}: {page_error}")
                                 continue
@@ -682,12 +682,11 @@ class GeminiProcessor:
                 
                 # Check for specific API error types
                 if 'rate limit' in error_msg or 'quota' in error_msg or '429' in error_msg:
-                    # Rate limit error - use longer exponential backoff
-                    rate_limit_delay = delay * (3 ** attempt)  # More aggressive backoff for rate limits
+                    # Rate limit error - use a fixed longer delay
+                    wait_time = 30  # Increase to 30s for quota limits
                     self.logger.warning(f"Rate limit exceeded (attempt {attempt + 1}/{max_retries + 1}): {e}")
-                    if attempt < max_retries:
-                        self.logger.info(f"Rate limit backoff: waiting {rate_limit_delay} seconds")
-                        time.sleep(rate_limit_delay)
+                    self.logger.info(f"Rate limit backoff: waiting {wait_time} seconds")
+                    time.sleep(wait_time)
                     continue
                 elif 'authentication' in error_msg or 'api key' in error_msg or '401' in error_msg:
                     # Authentication error - don't retry

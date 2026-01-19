@@ -215,7 +215,7 @@ export class DailySchedulerService {
       const useDocker = process.env.USE_DOCKER_EBOOK !== 'false'; // 預設使用 Docker
 
       const args = this.newBookConfig.checkOnly ? ['--check-only'] : [];
-      args.push('--verbose');
+      // args.push('--verbose'); // Removed to prevent excessive logging by default
 
       let command: string;
       let commandArgs: string[];

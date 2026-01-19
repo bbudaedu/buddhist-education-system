@@ -52,6 +52,11 @@ def setup_logging(verbose: bool = False) -> logging.Logger:
         ]
     )
     
+    # Suppress noisy logs
+    logging.getLogger('urllib3').setLevel(logging.WARNING)
+    logging.getLogger('pdfminer').setLevel(logging.WARNING)
+    logging.getLogger('selenium').setLevel(logging.WARNING)
+    
     return logging.getLogger(__name__)
 
 
@@ -159,6 +164,9 @@ def check_for_new_books(
     
     # Find new books (books newer than baseline)
     new_books = []
+    baseline_normalized = baseline_title.strip()
+    logger.debug(f"Baseline (normalized): '{baseline_normalized}'")
+    
     for book in books:
         current_title = book['title']
         current_code = book.get('code', '')
@@ -166,30 +174,42 @@ def check_for_new_books(
         # Construct composite title (Title + Code) to match legacy scraper format
         composite_title = f"{current_title} {current_code}".strip()
         
+        logger.debug(f"Comparing: title='{current_title}', code='{current_code}', composite='{composite_title}'")
+        
         # Match using multiple strategies
         is_match = False
         
         # 1. Exact title match
-        if current_title == baseline_title:
+        if current_title == baseline_normalized:
             is_match = True
+            logger.debug("Match strategy: exact title")
         
         # 2. Composite title match (Title + Code) - this is likely what matched the baseline
-        elif composite_title == baseline_title:
+        elif composite_title == baseline_normalized:
             is_match = True
+            logger.debug("Match strategy: composite title")
             
-        # 3. Baseline starts with current title (handle potential extra spaces or suffixes)
-        elif baseline_title.startswith(current_title) and (not current_code or current_code in baseline_title):
+        # 3. Baseline starts with current title AND contains code
+        elif baseline_normalized.startswith(current_title) and current_code and current_code in baseline_normalized:
             is_match = True
+            logger.debug("Match strategy: partial match (title prefix + code)")
+            
+        # 4. Current title + code is contained in baseline (handles different separators)
+        elif current_title in baseline_normalized and current_code in baseline_normalized:
+            is_match = True
+            logger.debug("Match strategy: both title and code in baseline")
             
         if is_match:
             # Found the baseline, all previous books are new
-            logger.info(f"找到基準書籍: {current_title} (原始基準: {baseline_title})")
+            logger.info(f"✅ 找到基準書籍: {composite_title}")
+            logger.info(f"   原始基準: {baseline_title}")
             break
             
         new_books.append(book)
     
     has_new_books = len(new_books) > 0
-    latest_title = books[0]['title'] if books else None
+    # Use composite title for latest_title to ensure consistency
+    latest_title = f"{books[0]['title']} {books[0].get('code', '')}".strip() if books else None
     
     if has_new_books:
         logger.info(f"🎉 發現 {len(new_books)} 本新書！")
@@ -303,6 +323,11 @@ def main():
         default=10,
         help='檢查書籍數量上限 (預設: 10)'
     )
+    parser.add_argument(
+        '--baseline',
+        type=str,
+        help='強制指定基準書籍標題 (覆寫 config/env 設定)'
+    )
     
     args = parser.parse_args()
     
@@ -318,7 +343,10 @@ def main():
     try:
         # Load configuration
         config = load_config(logger)
-        baseline_title = config.get('baseline_book_title', '')
+        baseline_title = args.baseline if args.baseline else config.get('baseline_book_title', '')
+        
+        if args.baseline:
+            logger.info(f"使用命令列參數指定基準書籍: {baseline_title}")
         
         # Initialize API fetcher
         fetcher = BudaeduAPIFetcher(logger=logger)

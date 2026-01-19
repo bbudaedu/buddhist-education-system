@@ -63,7 +63,9 @@ services:
       - ebook_downloads:/app/downloads
       - ebook_output:/app/generated_documents
       - ebook_logs:/app/logs
-      - ./.env:/app/.env:rw # Mount .env for baseline auto-update
+      - ../ebook:/app # Development mount for code changes
+      - ../ebook/config.json:/app/config.json # Keep config persistent
+
     profiles:
       - tools # Only run when explicitly called
     restart: "no"
