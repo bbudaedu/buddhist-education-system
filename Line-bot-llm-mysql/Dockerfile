@@ -44,6 +44,17 @@ RUN npm run build
 # Remove devDependencies to keep image small
 RUN npm prune --production
 
+# Create non-root user for security (but allow root for now to fix permission issues with binds)
+# RUN addgroup -g 1001 -S nodejs
+# RUN adduser -S nodejs -u 1001
+# RUN chown -R nodejs:nodejs /app
+# USER nodejs
+
+# Create symlink for docker-compose compatibility
+# When docker compose runs in /app, it looks for ../ebook which resolves to /ebook
+# Since we mount ./ebook to /app/ebook, we need /ebook -> /app/ebook
+RUN ln -s /app/ebook /ebook
+
 # Expose port
 EXPOSE 3000
 
