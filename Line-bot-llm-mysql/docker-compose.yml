@@ -59,11 +59,14 @@ services:
       - TZ=Asia/Taipei
       - CHROMEDRIVER_PATH=/usr/bin/chromedriver
       - DOWNLOAD_DIR=/app/downloads
+      - API_BASE_URL=http://line-bot-web:3000 # Connect to line-bot-web for DB sync
     volumes:
       - ebook_downloads:/app/downloads
       - ebook_output:/app/generated_documents
       - ebook_logs:/app/logs
       - ../ebook:/app # Development mount for code changes (includes config.json)
+    networks:
+      - line-bot-network
 
     profiles:
       - tools # Only run when explicitly called
