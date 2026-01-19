@@ -63,8 +63,7 @@ services:
       - ebook_downloads:/app/downloads
       - ebook_output:/app/generated_documents
       - ebook_logs:/app/logs
-      - ../ebook:/app # Development mount for code changes
-      - ../ebook/config.json:/app/config.json # Keep config persistent
+      - ../ebook:/app # Development mount for code changes (includes config.json)
 
     profiles:
       - tools # Only run when explicitly called
