@@ -165,16 +165,20 @@ def check_for_new_books(
     # Find new books (books newer than baseline)
     new_books = []
     baseline_normalized = baseline_title.strip()
-    logger.debug(f"Baseline (normalized): '{baseline_normalized}'")
+    logger.info(f"🔍 Baseline (normalized): '{baseline_normalized}'")
     
-    for book in books:
+    for idx, book in enumerate(books):
         current_title = book['title']
         current_code = book.get('code', '')
         
         # Construct composite title (Title + Code) to match legacy scraper format
         composite_title = f"{current_title} {current_code}".strip()
         
-        logger.debug(f"Comparing: title='{current_title}', code='{current_code}', composite='{composite_title}'")
+        # Only log first book comparison for brevity
+        if idx == 0:
+            logger.info(f"🔍 First book: title='{current_title}', code='{current_code}'")
+            logger.info(f"🔍 Composite: '{composite_title}'")
+            logger.info(f"🔍 Match test: composite == baseline? {composite_title == baseline_normalized}")
         
         # Match using multiple strategies
         is_match = False
