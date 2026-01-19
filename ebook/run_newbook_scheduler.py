@@ -160,9 +160,32 @@ def check_for_new_books(
     # Find new books (books newer than baseline)
     new_books = []
     for book in books:
-        if book['title'] == baseline_title:
+        current_title = book['title']
+        current_code = book.get('code', '')
+        
+        # Construct composite title (Title + Code) to match legacy scraper format
+        composite_title = f"{current_title} {current_code}".strip()
+        
+        # Match using multiple strategies
+        is_match = False
+        
+        # 1. Exact title match
+        if current_title == baseline_title:
+            is_match = True
+        
+        # 2. Composite title match (Title + Code) - this is likely what matched the baseline
+        elif composite_title == baseline_title:
+            is_match = True
+            
+        # 3. Baseline starts with current title (handle potential extra spaces or suffixes)
+        elif baseline_title.startswith(current_title) and (not current_code or current_code in baseline_title):
+            is_match = True
+            
+        if is_match:
             # Found the baseline, all previous books are new
+            logger.info(f"找到基準書籍: {current_title} (原始基準: {baseline_title})")
             break
+            
         new_books.append(book)
     
     has_new_books = len(new_books) > 0
