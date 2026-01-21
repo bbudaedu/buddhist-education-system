@@ -32,6 +32,7 @@ services:
       - NODE_ENV=production
       - TZ=Asia/Taipei
       - SCHEDULER_ENABLED=true
+      - NEWBOOK_RUN_ON_INIT=true  # 啟動時立即執行一次新書檢查
       - CHROMEDRIVER_PATH=/usr/bin/chromedriver
       - DOWNLOAD_DIR=/app/ebook/downloads
     env_file:
