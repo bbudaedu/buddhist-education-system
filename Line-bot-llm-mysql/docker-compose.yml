@@ -62,6 +62,9 @@ services:
       - CHROMEDRIVER_PATH=/usr/bin/chromedriver
       - DOWNLOAD_DIR=/app/downloads
       - API_BASE_URL=http://line-bot-web:3000 # Connect to line-bot-web for DB sync
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     volumes:
       - ebook_downloads:/app/downloads
       - ebook_output:/app/generated_documents
