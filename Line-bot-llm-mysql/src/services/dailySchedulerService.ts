@@ -226,12 +226,16 @@ export class DailySchedulerService {
         console.log('🐳 Executing new book scheduler via Docker...');
         command = '/usr/bin/docker';
         // Add -p line-bot-llm-mysql to reuse the same project name and network
+        // Add -f to specify the compose file path explicitly (required when running via docker.sock)
+        // The compose file is mounted at /app/.env but docker-compose.yml should be found via cwd
         commandArgs = [
-          'compose', '-p', 'line-bot-llm-mysql', 'run', '--rm', 'ebook-processor',
+          'compose', '-p', 'line-bot-llm-mysql', 
+          '-f', '/opt/buddhist-education-system/Line-bot-llm-mysql/docker-compose.yml',
+          'run', '--rm', 'ebook-processor',
           'python', 'run_newbook_scheduler.py', ...args
         ];
-        // In container, we want to run from project root (/app) where docker-compose.yml is likely located
-        cwd = process.cwd();
+        // When using docker.sock, commands run on host, so we need the host path
+        cwd = '/opt/buddhist-education-system/Line-bot-llm-mysql';
       } else {
         // 直接執行模式：使用 Python
         const scriptPath = path.resolve(path.dirname(this.config.ebookProcessorPath), 'run_newbook_scheduler.py');
