@@ -410,7 +410,7 @@ class OCRProcessor:
             Extracted text from the batch
         """
         try:
-            # Build prompt
+            # Build prompt with vertical text layout hint for traditional Chinese Buddhist texts
             context = f"這是書籍「{book_title}」的掃描頁面。" if book_title else "這是書籍的掃描頁面。"
             
             prompt = f"""{context}
@@ -418,10 +418,13 @@ class OCRProcessor:
 請執行 OCR，提取這些頁面中的所有繁體中文文字內容。
 
 重要指示：
-- 直接輸出識別到的文字，不要加任何說明
-- 保持文字的段落結構
-- 忽略頁碼、頁首頁尾等非正文內容
-- 如果頁面是目錄、版權頁等，簡要標註即可"""
+- 此書籍為【直式排版】（傳統中文），文字由右至左、由上至下排列
+- 請按照正確的閱讀順序：從頁面右側欄位開始，由上而下讀完一欄，再移至左側下一欄
+- 直接輸出識別到的文字，不要加任何說明或解釋
+- 保持段落結構，每欄換行表示
+- 忽略頁碼、頁首頁尾圖案裝飾等非正文內容
+- 如果頁面是目錄、版權頁等，簡要標註即可
+- 忽略最後的助印功德名單頁面"""
             
             # Build content parts
             content_parts = [prompt]

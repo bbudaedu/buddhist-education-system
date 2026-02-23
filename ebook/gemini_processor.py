@@ -137,8 +137,9 @@ class GeminiProcessor:
         
         # If text is mostly about donations/publishing
         donation_related = sum(1 for kw in ["捐贈", "捐款", "助印", "功德", "回向", "恭印"] if kw in text)
-        if donation_related >= 3 and text_length < 2000:
-            self.logger.info(f"Text appears to be donation/acknowledgment page ({donation_related} donation keywords)")
+        # 門檻提高至 5000，避免助印功德長名單被誤判為「內容有效」
+        if donation_related >= 3 and text_length < 5000:
+            self.logger.info(f"Text appears to be donation/acknowledgment page ({donation_related} donation keywords, {text_length} chars < 5000)")
             return False
         
         return True
@@ -211,6 +212,66 @@ class GeminiProcessor:
             self.logger.error(f"Error checking PDF size for {pdf_path}: {e}")
             raise  
   
+    def _check_is_image_pdf(self, pdf_path: str, sample_pages: int = 10) -> bool:
+        """
+        Check if a PDF is image-based (scanned) by sampling page text extraction.
+        
+        Image-based PDFs (e.g., vertical layout scanned Buddhist texts) have very few
+        pages with extractable text. If < 5% of sampled content pages have text,
+        the PDF is treated as image-based and will be processed with OCR.
+        
+        Args:
+            pdf_path: Path to the PDF file
+            sample_pages: Max number of content pages to sample
+            
+        Returns:
+            bool: True if PDF appears to be image-based (scanned)
+        """
+        try:
+            with open(pdf_path, 'rb') as f:
+                reader = pypdf.PdfReader(f)
+                total_pages = len(reader.pages)
+                
+                if total_pages == 0:
+                    return False
+                
+                # Sample content pages - skip first 2 (cover) and last 3 (donation pages)
+                # to avoid false positives from cover/donation pages that do have text
+                if total_pages <= sample_pages:
+                    pages_to_check = list(range(total_pages))
+                else:
+                    start = min(2, total_pages - 1)
+                    end = max(start + 1, total_pages - 3)
+                    step = max(1, (end - start) // sample_pages)
+                    pages_to_check = list(range(start, end, step))[:sample_pages]
+                
+                if not pages_to_check:
+                    return False
+                
+                # Count sampled pages with extractable text (>20 chars threshold)
+                text_pages = 0
+                for page_num in pages_to_check:
+                    try:
+                        text = reader.pages[page_num].extract_text()
+                        if text and len(text.strip()) > 20:
+                            text_pages += 1
+                    except Exception:
+                        continue
+                
+                success_ratio = text_pages / len(pages_to_check)
+                is_image = success_ratio < 0.05
+                self.logger.info(
+                    f"Image-PDF check: {text_pages}/{len(pages_to_check)} sampled pages "
+                    f"have text ({success_ratio:.1%}) -> "
+                    f"{'image-based PDF (OCR needed)' if is_image else 'text-based PDF'}"
+                )
+                # < 5% extractable → image-based (vertical scanned Buddhist texts)
+                return is_image
+                
+        except Exception as e:
+            self.logger.warning(f"Could not detect image-based PDF: {e}")
+            return False
+
     def extract_pdf_text(self, pdf_path: str) -> str:
         """
         Extract text content from PDF using pypdf library with enhanced file system error handling
@@ -396,6 +457,15 @@ class GeminiProcessor:
             elif not self._is_content_quality_good(extracted_text, book_title):
                 self.logger.info(f"Extracted text appears to be metadata only (donation/copyright pages), attempting OCR for: {book_title}")
                 use_ocr = True
+            else:
+                # 額外檢查：計算頁面提取成功率，< 5% 代表圖片型 PDF（直式排版掃描常見）
+                # 透過 pypdf 重讀一次，但這裡我們只能從 extract_pdf_text 回傳的 page 數推算
+                # 改用字元密度 heuristic：超過 X 頁但字元極少，觸發 OCR
+                # 注意：extract_pdf_text 不回傳 page stats，需要另行偵測
+                # → 用 _check_is_image_pdf 輔助方法
+                if self._check_is_image_pdf(pdf_path):
+                    self.logger.info(f"PDF appears to be image-based (low text/page ratio), attempting OCR for: {book_title}")
+                    use_ocr = True
             
             if use_ocr:
                 # Try OCR for image-based PDFs

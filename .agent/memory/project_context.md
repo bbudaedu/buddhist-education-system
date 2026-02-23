@@ -63,3 +63,11 @@
 - **主分支**: `master`
 - **待推送**: 學員中心功能 (2025-12-06)
 
+## 7. Bug 修復記錄
+
+### 2026-02-23 - 每日新書摘要腳本 Baseline 不更新 (已修復)
+- **症狀**: 每天自動排程重複處理相同書籍
+- **根本原因**: `ebook/api_website_monitor.py` 的 `_mark_content_as_notified()` 只在 LINE 推送成功後才呼叫，達到每日推送上限 (1次) 時 baseline 不更新
+- **修復**: 將 baseline 更新移到通知發送前執行，解耦兩個動作
+- **注意**: `notification_state.json` 的 `last_check` 停在 2026-01-06，若需補掃 1 月以來新書，需手動 reset
+

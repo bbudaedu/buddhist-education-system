@@ -367,6 +367,7 @@ def write_output(result: Dict[str, Any], logger: logging.Logger) -> str:
     return str(output_file)
 
 
+
 def main():
     """Main entry point for the new book scheduler"""
     parser = argparse.ArgumentParser(
