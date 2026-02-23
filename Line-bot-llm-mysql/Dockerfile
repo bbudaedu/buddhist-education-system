@@ -19,7 +19,10 @@ RUN apk add --no-cache \
 RUN pip3 install --no-cache-dir --break-system-packages \
   selenium \
   google-genai \
+  google-generativeai \
   pypdf \
+  pymupdf \
+  pillow \
   python-docx \
   openpyxl \
   requests \
