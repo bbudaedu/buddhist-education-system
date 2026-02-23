@@ -284,6 +284,74 @@ def process_new_books(config: Dict[str, Any], api_books: List[Dict[str, Any]], l
         }
 
 
+def _update_baseline(config: Dict[str, Any], new_title: str, logger: logging.Logger) -> bool:
+    """
+    Update baseline book title - supports both config.json and .env modes
+    
+    Args:
+        config: Current configuration dictionary (may contain 'config_path')
+        new_title: New baseline title to set
+        logger: Logger instance
+        
+    Returns:
+        bool: True if baseline updated successfully
+    """
+    if not new_title or not new_title.strip():
+        logger.warning("新的 baseline 標題為空，跳過更新")
+        return False
+    
+    # Try config.json mode first (local environment)
+    config_path = config.get('config_path')
+    if config_path and os.path.exists(config_path):
+        try:
+            config_manager = ConfigManager(config_path, logger)
+            success = config_manager.update_baseline_book_title(new_title.strip())
+            if success:
+                logger.info(f"✅ Baseline 已更新 (config.json): {new_title}")
+                return True
+        except Exception as e:
+            logger.warning(f"config.json baseline 更新失敗: {e}，嘗試 .env 模式")
+    
+    # Fallback: update .env file (container environment)
+    env_paths = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'Line-bot-llm-mysql', '.env'),
+        '/opt/buddhist-education-system/Line-bot-llm-mysql/.env',
+        '/app/.env',
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'),
+    ]
+    
+    for env_path in env_paths:
+        if os.path.exists(env_path):
+            try:
+                with open(env_path, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                
+                updated = False
+                new_lines = []
+                for line in lines:
+                    if line.startswith('BASELINE_BOOK_TITLE='):
+                        new_lines.append(f'BASELINE_BOOK_TITLE={new_title.strip()}\n')
+                        updated = True
+                    else:
+                        new_lines.append(line)
+                
+                if not updated:
+                    new_lines.append(f'\n# Auto-updated by run_newbook_scheduler.py\nBASELINE_BOOK_TITLE={new_title.strip()}\n')
+                
+                with open(env_path, 'w', encoding='utf-8') as f:
+                    f.writelines(new_lines)
+                
+                logger.info(f"✅ Baseline 已更新 (.env: {env_path}): {new_title}")
+                return True
+                
+            except Exception as e:
+                logger.warning(f"更新 .env 失敗 ({env_path}): {e}")
+                continue
+    
+    logger.warning("找不到可寫入的 config.json 或 .env 檔案")
+    return False
+
+
 def write_output(result: Dict[str, Any], logger: logging.Logger) -> str:
     """Write output JSON for Node.js integration"""
     output_dir = SCRIPT_DIR / "generated_documents"
@@ -397,6 +465,17 @@ def main():
             final_result['processing'] = process_result
             final_result['action'] = 'processed'
             final_result['success'] = process_result.get('success', False)
+            
+            # 修復: 成功處理後更新 baseline，防止下次重複處理相同書籍
+            if process_result.get('success') and check_result.get('latest_title'):
+                new_baseline = check_result['latest_title']
+                logger.info(f"✅ 處理成功，更新 baseline 為: {new_baseline}")
+                baseline_updated = _update_baseline(config, new_baseline, logger)
+                if baseline_updated:
+                    final_result['baseline_updated'] = new_baseline
+                else:
+                    logger.warning("⚠️ 無法自動更新 baseline，請手動更新 BASELINE_BOOK_TITLE 環境變數")
+                    final_result['baseline_update_failed'] = True
         else:
             final_result['action'] = 'no_action_needed'
             final_result['success'] = True
@@ -407,11 +486,14 @@ def main():
             final_result['action'] = 'baseline_initialized'
             final_result['message'] = '首次執行，已設定基準書籍'
             
-            # Update baseline in config
+            # Update baseline (supports both config.json and .env mode)
             if check_result.get('latest_title'):
-                config_manager = ConfigManager(str(CONFIG_FILE), logger)
-                config_manager.update_baseline_book_title(check_result['latest_title'])
-                logger.info(f"已更新基準書籍: {check_result['latest_title']}")
+                new_baseline = check_result['latest_title']
+                baseline_updated = _update_baseline(config, new_baseline, logger)
+                if baseline_updated:
+                    logger.info(f"已設定初始基準書籍: {new_baseline}")
+                else:
+                    logger.warning(f"無法更新初始基準書籍，請手動設定 BASELINE_BOOK_TITLE={new_baseline}")
         
         # Write output
         output_path = write_output(final_result, logger)

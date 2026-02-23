@@ -232,13 +232,19 @@ class APIWebsiteMonitor:
                 }
             }
             
-            # 4. 發送通知 (檢查每日限制)
+            # 4. 無論是否發送通知，先更新 baseline (解耦 baseline 更新與通知發送)
+            # 修復: 原本只在通知成功後才更新，導致達到每日上限後 baseline 永遠不更新
+            if self._has_new_content(new_content):
+                self._mark_content_as_notified(new_content)
+                self.logger.info("✅ Baseline 已更新 (無論通知是否發送)")
+            
+            # 5. 發送通知 (檢查每日限制)
             if send_notification and self._has_new_content(new_content):
                 # 檢查推送限制
                 if not self._can_push_today():
                     result['notification_sent'] = False
                     result['notification_reason'] = '已達今日推送上限 (1次/天)'
-                    self.logger.warning("⚠️ 已達今日 LINE 推送上限，跳過通知")
+                    self.logger.warning("⚠️ 已達今日 LINE 推送上限，跳過通知 (Baseline 已更新)")
                 elif not self.notification_processor:
                     self.initialize_notification_components()
                     if self.notification_processor:
@@ -246,7 +252,6 @@ class APIWebsiteMonitor:
                         result['notification_sent'] = notification_sent
                         
                         if notification_sent:
-                            self._mark_content_as_notified(new_content)
                             self._record_push()
                             self.stats['total_notifications_sent'] += 1
                     else:
@@ -257,14 +262,13 @@ class APIWebsiteMonitor:
                     result['notification_sent'] = notification_sent
                     
                     if notification_sent:
-                        self._mark_content_as_notified(new_content)
                         self._record_push()
                         self.stats['total_notifications_sent'] += 1
             else:
                 result['notification_sent'] = False
                 result['notification_reason'] = '無新內容或通知已停用'
             
-            # 5. 更新統計
+            # 6. 更新統計
             cycle_end = datetime.now()
             cycle_duration = (cycle_end - cycle_start).total_seconds()
             
