@@ -18,8 +18,10 @@ import pypdf
 # OCR Processor for image-based PDFs
 try:
     from ocr_processor import OCRProcessor
+    import ocr_processor
     OCR_AVAILABLE = True
-except ImportError:
+except ImportError as e:
+    print(f"DEBUG: Failed to import OCRProcessor: {e}")
     OCR_AVAILABLE = False
 
 
@@ -473,17 +475,22 @@ class GeminiProcessor:
                 if ocr_processor:
                     try:
                         ocr_text = ocr_processor.process_pdf(pdf_path, book_title)
-                        if ocr_text and len(ocr_text) > len(extracted_text or ""):
+                        if ocr_text and len(ocr_text) > 100:  # 至少要有一定文字量才算成功
                             extracted_text = ocr_text
                             self.logger.info(f"OCR successful, extracted {len(extracted_text)} characters")
                         else:
-                            self.logger.warning("OCR returned less text than pypdf, keeping original")
+                            self.logger.warning("OCR returned too little text, discarding original pypdf text")
+                            extracted_text = ""
                     except Exception as ocr_error:
                         self.logger.error(f"OCR processing failed: {ocr_error}")
+                        extracted_text = ""
+                else:
+                    self.logger.warning("OCR processor not initialized, discarding original text to trigger search fallback")
+                    extracted_text = ""
                 
-                # Final fallback to search if OCR also failed
+                # Final fallback to search if OCR also failed (extracted_text was cleared)
                 if not extracted_text:
-                    self.logger.warning(f"Both pypdf and OCR failed, falling back to search method for: {book_title}")
+                    self.logger.warning(f"Both pypdf and OCR failed/unavailable, falling back to search method for: {book_title}")
                     return self.generate_summary_from_search(book_title, author)
 
             
