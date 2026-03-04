@@ -23,30 +23,30 @@ services:
       retries: 3
       start_period: 40s
 
-  # Daily Scheduler Service
-  line-bot-scheduler:
-    build: .
-    container_name: line-bot-scheduler
-    user: root # Required for write access to mounted ebook directory
-    environment:
-      - NODE_ENV=production
-      - TZ=Asia/Taipei
-      - SCHEDULER_ENABLED=true
-      - NEWBOOK_RUN_ON_INIT=true # 啟動時立即執行一次新書檢查
-      - CHROMEDRIVER_PATH=/usr/bin/chromedriver
-      - DOWNLOAD_DIR=/app/ebook/downloads
-    env_file:
-      - .env
-    # depends_on:
-    #   - mysql
-    restart: unless-stopped
-    entrypoint: [ "/bin/sh", "-c" ]
-    command: [ "node dist/scripts/scheduler.js" ]
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - /var/run/docker.sock:/var/run/docker.sock # Allow scheduler to run docker commands
-      - ./.env:/app/.env:ro # Mount .env for internal docker compose usage
-      - .:/opt/buddhist-education-system/Line-bot-llm-mysql # Mount current directory to host path for DooD compatibility
+  # Daily Scheduler Service (Disabled: Migrated to new-book-notifier)
+  # line-bot-scheduler:
+  #   build: .
+  #   container_name: line-bot-scheduler
+  #   user: root # Required for write access to mounted ebook directory
+  #   environment:
+  #     - NODE_ENV=production
+  #     - TZ=Asia/Taipei
+  #     - SCHEDULER_ENABLED=true
+  #     - NEWBOOK_RUN_ON_INIT=true # 啟動時立即執行一次新書檢查
+  #     - CHROMEDRIVER_PATH=/usr/bin/chromedriver
+  #     - DOWNLOAD_DIR=/app/ebook/downloads
+  #   env_file:
+  #     - .env
+  #   # depends_on:
+  #   #   - mysql
+  #   restart: unless-stopped
+  #   entrypoint: [ "/bin/sh", "-c" ]
+  #   command: [ "node dist/scripts/scheduler.js" ]
+  #   volumes:
+  #     - /etc/localtime:/etc/localtime:ro
+  #     - /var/run/docker.sock:/var/run/docker.sock # Allow scheduler to run docker commands
+  #     - ./.env:/app/.env:ro # Mount .env for internal docker compose usage
+  #     - .:/opt/buddhist-education-system/Line-bot-llm-mysql # Mount current directory to host path for DooD compatibility
 
   # MySQL Database (Disabled: Using external DB at 124.219.37.161)
   # mysql:
